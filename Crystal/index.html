@@ -311,7 +311,7 @@ async function submitPayment() {
     };
 
     sessionStorage.setItem('invoiceSession', JSON.stringify(session));
-    window.location.href = 'pay/invoice-btc.html'; 
+    window.location.href = '/pay/invoice-btc.html'; 
   } catch (e) {
     hideLoading();
     alert(`Error: ${e.message}`);
