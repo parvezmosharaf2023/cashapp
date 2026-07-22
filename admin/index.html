@@ -207,7 +207,6 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
           </table>
         </div>
         
-        <!-- 🟢 এই মোবাইল লিস্ট ডিভটি আগের কোডে মিসিং ছিল 🟢 -->
         <div class="mobile-list" id="mobilePaymentsList">
           <div class="m-empty">Loading...</div>
         </div>
@@ -251,12 +250,11 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
 </div>
 
 <script>
-// Supabase Credentials
+// 🟢 সুপাবেস ক্রেডেনশিয়ালস 
 const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
 
-const ADMIN_USER = 'Master';
-const ADMIN_PASS = 'Master@2026';
+const ADMIN_USER = 'master';
 const PER_PAGE = 30;
 
 let allPayments = [];
@@ -275,8 +273,10 @@ function extractModelName(urlStr) {
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  if (u === ADMIN_USER && p === ADMIN_PASS) {
+  // শুধুমাত্র ইউজারনেম লোকালি চেক করে, পাসওয়ার্ড সরাসরি সার্ভারে চলে যাবে ভেরিফিকেশনের জন্য
+  if (u === ADMIN_USER && p !== '') {
     sessionStorage.setItem('masterAuth', 'true');
+    sessionStorage.setItem('masterPass', p); 
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadData();
@@ -290,6 +290,7 @@ function doLogin() {
 
 function doLogout() {
   sessionStorage.removeItem('masterAuth');
+  sessionStorage.removeItem('masterPass');
   location.reload();
 }
 
@@ -310,7 +311,7 @@ async function loadData() {
   el.classList.add('show');
 }
 
-// 🟢 Fetch ALL Payments (No Filters) + Expiration Logic Added
+// 🟢 Fetch ALL Payments (কোনো ফিল্টার ছাড়া সব মডেলের ডেটা আসবে)
 async function fetchPayments() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&order=created_at.desc`, {
@@ -331,7 +332,7 @@ async function fetchPayments() {
   } catch(e) { console.error(e); }
 }
 
-// 🟢 Fetch ALL Withdrawals (No Filters)
+// 🟢 Fetch ALL Withdrawals (সব উইথড্রয়াল রিকোয়েস্ট)
 async function fetchWithdrawals() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&order=created_at.desc`, {
@@ -342,7 +343,7 @@ async function fetchWithdrawals() {
   } catch(e) { console.error(e); }
 }
 
-// 🟢 Master Admin Action: Mark Withdrawal as Paid
+// 🟢 Master Admin Action: RPC দিয়ে পেমেন্ট কমপ্লিট করা (Secure)
 async function completeWithdrawal(id, btnElement) {
   if(!confirm("Are you sure you have paid this amount? This will mark it as Completed.")) return;
   
@@ -350,28 +351,52 @@ async function completeWithdrawal(id, btnElement) {
   btnElement.textContent = 'Processing...';
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?id=eq.${id}`, {
-      method: 'PATCH',
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_withdrawal`, {
+      method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ status: 'completed' })
+      // 🟢 RPC তে ডাটা এবং মাস্টার পাসওয়ার্ড পাঠানো হচ্ছে
+      body: JSON.stringify({ p_id: id, p_pass: sessionStorage.getItem('masterPass') })
     });
 
     if (res.ok) {
-      loadData(); // Refresh UI to show as completed
+      loadData(); 
     } else {
-      alert("Failed to update status. Make sure RLS is disabled on withdrawals table.");
+      alert("Unauthorized! Incorrect Master Password.");
       btnElement.disabled = false;
       btnElement.textContent = 'Mark Paid';
+      if(res.status === 401 || res.status === 400) doLogout();
     }
   } catch(e) { 
     console.error(e); 
     btnElement.disabled = false;
   }
+}
+
+// 🟢 Master Admin Action: RPC দিয়ে Mark করা
+async function toggleMark(invoiceId, currentStatus, btnElement) {
+  const newStatus = !currentStatus;
+  btnElement.disabled = true; 
+  btnElement.textContent = '...';
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_mark`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_invoice_id: invoiceId, p_is_marked: newStatus, p_pass: sessionStorage.getItem('masterPass') })
+    });
+
+    if (res.ok) {
+      loadData();
+    } else {
+      alert("Unauthorized! Incorrect Master Password.");
+      if(res.status === 401 || res.status === 400) doLogout();
+      btnElement.disabled = false;
+    }
+  } catch(e) { btnElement.disabled = false; }
 }
 
 function updateStats() {
@@ -409,7 +434,7 @@ function renderPayments() {
   });
 
   const tbody = document.getElementById('paymentsBody');
-  const mList = document.getElementById('mobilePaymentsList'); // 🟢 Mobile Element
+  const mList = document.getElementById('mobilePaymentsList'); 
   const pagUI = document.getElementById('payPagination');
 
   if (!filtered.length) {
@@ -438,12 +463,16 @@ function renderPayments() {
       <td><div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.55);">${shortId}</div></td>
       <td style="font-weight:800;color:#fff;font-size:15px;">$${parseFloat(p.amount||0).toFixed(2)}</td>
       <td><span class="badge ${es}"><span class="badge-dot"></span>${es}</span></td>
-      <td>${isMarked ? '<span style="color:#00D632;font-weight:bold;">✓ Marked</span>' : '<span style="color:rgba(255,255,255,0.3);">No</span>'}</td>
+      <td>
+        <button class="btn-mark ${isMarked ? 'marked-active' : ''}" onclick="toggleMark('${p.invoice_id}', ${isMarked}, this)" style="margin-left:0;">
+          ${isMarked ? '✓ Marked' : 'Mark'}
+        </button>
+      </td>
       <td style="color:rgba(255,255,255,0.35);font-size:12px;">${new Date(p.created_at).toLocaleDateString()}</td>
     </tr>`;
   }).join('');
 
-  // 🟢 Mobile Rendering (Added properly)
+  // 🟢 Mobile Rendering 
   mList.innerHTML = paginated.map((p) => {
     let es = p.status;
     if (p._uiExpired) es = 'expired';
@@ -463,7 +492,9 @@ function renderPayments() {
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
           <div class="m-amount">$${parseFloat(p.amount||0).toFixed(2)}</div>
           <span class="badge ${es}"><span class="badge-dot"></span>${es}</span>
-          ${isMarked ? '<span style="color:#00D632;font-size:10px;font-weight:bold;margin-top:4px;">✓ Marked</span>' : ''}
+          <button class="btn-mark ${isMarked ? 'marked-active' : ''}" style="margin-top:4px;" onclick="toggleMark('${p.invoice_id}', ${isMarked}, this)">
+            ${isMarked ? '✓ Marked' : 'Mark'}
+          </button>
         </div>
       </div>
     </div>`;
@@ -476,11 +507,14 @@ function renderPayments() {
     }
     pButtons += `<button class="page-btn" onclick="changePage(${currentPayPage + 1})" ${currentPayPage === totalPages ? 'disabled' : ''}>›</button>`;
     pagUI.innerHTML = pButtons;
-  } else { pagUI.innerHTML = ''; }
+  } else { 
+    pagUI.innerHTML = ''; 
+  }
   
   document.getElementById('paymentsFooter').textContent = `Total: ${filtered.length} entries`;
 }
 
+// 🟢 উইথড্রয়াল লিস্টে মেথড (bKash/Binance) এবং স্ট্যাটাস শো করার লজিক
 function renderWithdrawals() {
   const tbody = document.getElementById('withdrawalsBody');
   const mList = document.getElementById('mobileWithdrawalsList');
@@ -492,14 +526,19 @@ function renderWithdrawals() {
     return;
   }
 
+  // 🟢 Desktop View
   tbody.innerHTML = allWithdrawals.map(w => {
     const isCompleted = w.status === 'completed';
     const model = extractModelName(w.source);
+    const methodStyle = w.method === 'Binance' ? '#f3ba2f' : (w.method === 'bKash' ? '#e2136e' : (w.method === 'Nagad' ? '#f76a20' : '#00D632'));
     
     return `<tr>
       <td><span class="model-badge">${model}</span></td>
       <td style="font-weight:800;color:#ff4d4d;font-size:15px;">$${parseFloat(w.amount||0).toFixed(2)}</td>
-      <td style="color:rgba(255,255,255,0.7); font-family:monospace;">${w.note || '-'}</td>
+      <td>
+        <span style="background:${methodStyle}20; color:${methodStyle}; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${w.method || 'Bank'}</span>
+        <span style="color:rgba(255,255,255,0.7); font-family:monospace; margin-left:6px;">${w.note || '-'}</span>
+      </td>
       <td><span class="badge ${isCompleted ? 'completed' : 'pending'}"><span class="badge-dot"></span>${isCompleted ? 'Completed' : 'Pending'}</span></td>
       <td style="color:rgba(255,255,255,0.35);font-size:12px;">${new Date(w.created_at).toLocaleDateString()}</td>
       <td>
@@ -511,17 +550,21 @@ function renderWithdrawals() {
     </tr>`;
   }).join('');
 
-  // Mobile View Logic
+  // 🟢 Mobile View
   mList.innerHTML = allWithdrawals.map(w => {
     const isCompleted = w.status === 'completed';
     const model = extractModelName(w.source);
+    const methodStyle = w.method === 'Binance' ? '#f3ba2f' : (w.method === 'bKash' ? '#e2136e' : (w.method === 'Nagad' ? '#f76a20' : '#00D632'));
     
     return `<div class="m-card-w">
       <div class="m-row">
         <div class="m-left">
           <div style="margin-bottom:8px;"><span class="model-badge">${model}</span></div>
           <div style="font-size:20px;font-weight:800;color:#ff4d4d;">$${parseFloat(w.amount||0).toFixed(2)}</div>
-          <div style="color:rgba(255,255,255,0.6);font-size:13px;margin-top:4px;">${w.note || 'No note'}</div>
+          <div style="margin-top:6px;">
+            <span style="background:${methodStyle}20; color:${methodStyle}; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${w.method || 'Bank'}</span>
+            <span style="color:rgba(255,255,255,0.6);font-size:13px;margin-left:6px;">${w.note || 'No note'}</span>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;">
           <span class="badge ${isCompleted ? 'completed' : 'pending'}"><span class="badge-dot"></span>${isCompleted ? 'Paid' : 'Pending'}</span>
