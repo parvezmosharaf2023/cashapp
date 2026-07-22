@@ -571,6 +571,286 @@ function renderPayments() {
     let endPage = Math.min(totalPages, currentPayPage + 2);
     for (let i = startPage; i <= endPage; i++) {
       pButtons += `<button class="page-btn ${i === currentPayPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+<script>
+// 🟢 ফ্রন্টএন্ডে কোনো পাসওয়ার্ড নেই!
+const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
+const ADMIN_USER = 'crystal';
+const PER_PAGE = 25;
+let allPayments = [], allWithdrawals = [], currentPayPage = 1;
+
+// 🟢 লগিন লজিক (ভুল পাসওয়ার্ড দিলে ডাটাবেস থেকে এরর আসবে)
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  
+  if (u === ADMIN_USER && p !== '') {
+    sessionStorage.setItem('adminAuth', 'true');
+    sessionStorage.setItem('typedPass', p); // 🟢 টাইপ করা পাসওয়ার্ড সেভ রাখলাম
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadData();
+    startCountdownTick();
+  } else {
+    showLoginError();
+  }
+}
+
+function showLoginError() {
+  const err = document.getElementById('loginError');
+  err.style.display = 'block';
+  err.style.animation = 'none';
+  setTimeout(() => err.style.animation = '', 10);
+  sessionStorage.removeItem('adminAuth');
+}
+
+// 🟢 RPC দিয়ে Mark করা (Secure)
+async function toggleMark(invoiceId, currentStatus, btnElement) {
+  const newStatus = !currentStatus;
+  btnElement.disabled = true; 
+  btnElement.textContent = '...';
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_mark`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_invoice_id: invoiceId, p_is_marked: newStatus, p_pass: sessionStorage.getItem('typedPass') })
+    });
+
+    if (res.ok) {
+      const pIndex = allPayments.findIndex(x => x.invoice_id === invoiceId);
+      if (pIndex > -1) { allPayments[pIndex].is_marked = newStatus; renderPayments(); }
+    } else {
+      alert("Unauthorized! Incorrect password or read-only error.");
+      if(res.status === 401 || res.status === 400) doLogout();
+      btnElement.disabled = false;
+    }
+  } catch(e) { btnElement.disabled = false; }
+}
+
+// 🟢 RPC দিয়ে উইথড্র রিকোয়েস্ট করা (bKash/Binance/Nagad মেথড সহ)
+async function submitWithdrawal() {
+  const amt = parseFloat(document.getElementById('wdAmount').value);
+  const method = document.getElementById('wdMethod').value; // 🟢 মেথড যুক্ত করা হলো
+  const note = document.getElementById('wdNote').value || '';
+  
+  if (!amt || amt <= 0) return alert('Enter a valid amount');
+  if (!note) return alert('Enter account details (Address/Number)');
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/request_withdrawal`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+      // 🟢 RPC ফাংশনে ডেটা পাঠানো হচ্ছে
+      body: JSON.stringify({ p_amount: amt, p_method: method, p_note: note, p_source: 'Crystal', p_pass: sessionStorage.getItem('typedPass') })
+    });
+
+    if(res.ok) {
+      document.getElementById('wdAmount').value = '';
+      document.getElementById('wdNote').value = '';
+      loadData(); 
+    } else { alert("Failed! Check password or RLS."); }
+  } catch(e) { console.error(e); }
+}
+
+async function fetchPayments() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*Crystal*&order=created_at.desc`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    let data = await res.json();
+    if (data.error) return;
+    const now = new Date();
+    allPayments = data.map(p => {
+      p._expireMins = (p.payment_type && p.payment_type.toLowerCase() === 'usdc') ? 15 : 60;
+      if (p.status === 'new' || p.status === 'pending') {
+        const diffMin = (now - new Date(p.created_at)) / 60000;
+        if (diffMin > p._expireMins) p._uiExpired = true;
+      }
+      return p;
+    });
+  } catch(e) { console.error(e); }
+}
+
+async function fetchWithdrawals() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=ilike.*Crystal*&order=created_at.desc`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    let data = await res.json();
+    if(!data.error) allWithdrawals = data;
+  } catch(e) { console.error(e); }
+}
+
+function updateStats() {
+  const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
+  const pending = allPayments.filter(p => (p.status === 'new' || p.status === 'pending') && !p._uiExpired);
+  const expired = allPayments.filter(p => p.status === 'expired' || p._uiExpired);
+
+  const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
+  // শুধুমাত্র কমপ্লিট হওয়া উইথড্রয়ালগুলো হিসাব করবে
+  const completedWd = allWithdrawals.filter(w => w.status === 'completed');
+  const totalWithdrawn = completedWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
+  const available = totalSettled - totalWithdrawn;
+
+  document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
+  document.getElementById('statSettledCount').textContent = settled.length + ' payments';
+  document.getElementById('statAvailable').textContent = '$' + available.toFixed(2);
+  document.getElementById('statPending').textContent = pending.length;
+  document.getElementById('statTotal').textContent = allPayments.length;
+  document.getElementById('statExpired').textContent = expired.length + ' expired';
+}
+
+function fmtDate(str) {
+  return new Date(str).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function fmtTime(str) {
+  return new Date(str).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function getExpireHtml(p, effectiveStatus) {
+  if (effectiveStatus === 'expired') return '<span class="expired-text">Expired</span>';
+  if ((p.status === 'new' || p.status === 'pending') && !p._uiExpired) {
+    const expireAt = new Date(new Date(p.created_at).getTime() + p._expireMins * 60000);
+    const diff = Math.max(0, Math.floor((expireAt - new Date()) / 1000));
+    const m = Math.floor(diff/60), s = diff%60;
+    return `<span class="expire-text" data-expire="${expireAt.toISOString()}">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
+  }
+  return '-';
+}
+
+function getFilteredPayments() {
+  const statusFilter = document.getElementById('filterStatus').value;
+  const dateFilter = document.getElementById('filterDate').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+
+  return allPayments.filter(p => {
+    let es = p.status;
+    if (p._uiExpired) es = 'expired';
+    if (statusFilter === 'pending' && (es !== 'pending' && es !== 'new')) return false;
+    else if (statusFilter && statusFilter !== 'pending' && es !== statusFilter) return false;
+    if (search && !(p.invoice_id||'').toLowerCase().includes(search)) return false;
+    if (dateFilter) {
+      const d = new Date(p.created_at), now = new Date();
+      if (dateFilter === 'today') { const t=new Date(); t.setHours(0,0,0,0); if(d<t) return false; }
+      else if (dateFilter === 'week') { const w=new Date(); w.setDate(w.getDate()-7); if(d<w) return false; }
+      else if (dateFilter === 'month') { const m=new Date(); m.setDate(m.getDate()-30); if(d<m) return false; }
+    }
+    return true;
+  });
+}
+
+function resetAndRenderPayments() { currentPayPage = 1; renderPayments(); }
+function changePage(page) { currentPayPage = page; renderPayments(); }
+function doLogout() { sessionStorage.removeItem('adminAuth'); location.reload(); }
+async function loadData() {
+  await Promise.all([fetchPayments(), fetchWithdrawals()]);
+  updateStats(); renderPayments(); renderWithdrawals();
+  const el = document.getElementById('lastUpdated');
+  el.textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  el.classList.add('show');
+}
+
+function renderPayments() {
+  const filtered = getFilteredPayments();
+  const tbody = document.getElementById('paymentsBody');
+  const mList = document.getElementById('mobilePaymentsList');
+  const pagUI = document.getElementById('payPagination');
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="m-empty">No payments found</td></tr>';
+    mList.innerHTML = '<div class="m-empty">No payments found</div>';
+    pagUI.innerHTML = '';
+    document.getElementById('paymentsFooter').textContent = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  if (currentPayPage > totalPages) currentPayPage = totalPages;
+  const start = (currentPayPage - 1) * PER_PAGE;
+  const paginated = filtered.slice(start, start + PER_PAGE);
+
+  tbody.innerHTML = paginated.map((p, index) => {
+    let es = p.status;
+    if (p._uiExpired) es = 'expired';
+    const shortId = (p.invoice_id||'').substring(0,18) + '...';
+    const globalIndex = start + index + 1;
+    const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
+    const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
+    const isMarked = p.is_marked === true;
+
+    return `<tr class="${isMarked ? 'is-marked' : ''}">
+      <td style="color:rgba(255,255,255,0.28);">${globalIndex}</td>
+      <td>
+        <div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.55);" title="${p.invoice_id}">${shortId}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
+          <div style="font-size:10px;color:rgba(255,255,255,0.25);">${fmtTime(p.created_at)}</div>
+        </div>
+      </td>
+      <td style="font-weight:800;color:#fff;font-size:15px;">$${parseFloat(p.amount||0).toFixed(2)}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="badge ${es}"><span class="badge-dot"></span>${es}</span>
+          <button class="btn-mark ${isMarked ? 'marked-active' : ''}" onclick="toggleMark('${p.invoice_id}', ${isMarked}, this)" style="margin-left:0;">
+            ${isMarked ? '✓ Marked' : 'Mark'}
+          </button>
+        </div>
+      </td>
+      <td style="color:rgba(255,255,255,0.45);">${p.city||'-'}</td>
+      <td style="color:rgba(255,255,255,0.45);">${p.country||'-'}</td>
+      <td>${getExpireHtml(p, es)}</td>
+      <td style="color:rgba(255,255,255,0.35);font-size:12px;">${fmtDate(p.created_at)}</td>
+    </tr>`;
+  }).join('');
+
+  mList.innerHTML = paginated.map((p) => {
+    let es = p.status;
+    if (p._uiExpired) es = 'expired';
+    const shortId = (p.invoice_id||'').substring(0,22) + '...';
+    const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
+    const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
+
+    let expirePart = '';
+    if (es === 'expired') expirePart = '<span class="m-expired-pill">Expired</span>';
+    else if ((p.status === 'new' || p.status === 'pending') && !p._uiExpired) {
+      const expireAt = new Date(new Date(p.created_at).getTime() + p._expireMins * 60000);
+      const diff = Math.max(0, Math.floor((expireAt-new Date())/1000));
+      const m = Math.floor(diff/60), s = diff%60;
+      expirePart = `<span class="m-expire" data-expire="${expireAt.toISOString()}">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
+    }
+    const isMarked = p.is_marked === true;
+
+    return `<div class="m-card ${isMarked ? 'is-marked' : ''}">
+      <div class="m-row">
+        <div class="m-left">
+          <div class="m-invoice" title="${p.invoice_id}">${shortId}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
+            <div class="m-time" style="margin-top:0;">${fmtDate(p.created_at)}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="m-amount">$${parseFloat(p.amount||0).toFixed(2)}</div>
+          <div style="margin-top:4px;"><span class="badge ${es}"><span class="badge-dot"></span>${es}</span></div>
+        </div>
+      </div>
+      <div class="m-meta">
+        ${p.city ? `<span class="m-pill">📍 ${p.city}${p.country ? ', '+p.country : ''}</span>` : ''}
+        ${expirePart}
+        <button class="btn-mark ${isMarked ? 'marked-active' : ''}" onclick="toggleMark('${p.invoice_id}', ${isMarked}, this)">
+          ${isMarked ? '✓ Marked' : 'Mark'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (totalPages > 1) {
+    let pButtons = `<button class="page-btn" onclick="changePage(${currentPayPage - 1})" ${currentPayPage === 1 ? 'disabled' : ''}>‹</button>`;
+    for (let i = Math.max(1, currentPayPage - 2); i <= Math.min(totalPages, currentPayPage + 2); i++) {
+      pButtons += `<button class="page-btn ${i === currentPayPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
     }
     pButtons += `<button class="page-btn" onclick="changePage(${currentPayPage + 1})" ${currentPayPage === totalPages ? 'disabled' : ''}>›</button>`;
     pagUI.innerHTML = pButtons;
@@ -579,10 +859,10 @@ function renderPayments() {
   }
 
   const total = filtered.reduce((s,p) => s+parseFloat(p.amount||0), 0);
-  document.getElementById('paymentsFooter').textContent =
-    `Showing ${start + 1}-${Math.min(start + PER_PAGE, filtered.length)} of ${filtered.length} filtered payments · $${total.toFixed(2)}`;
+  document.getElementById('paymentsFooter').textContent = `Showing ${start + 1}-${Math.min(start + PER_PAGE, filtered.length)} of ${filtered.length} filtered payments · $${total.toFixed(2)}`;
 }
 
+// 🟢 উইথড্রয়াল লিস্টে মেথড (bKash/Binance) এবং স্ট্যাটাস শো করার লজিক
 function renderWithdrawals() {
   const filtered = allWithdrawals;
   const tbody = document.getElementById('withdrawalsBody');
@@ -595,60 +875,44 @@ function renderWithdrawals() {
     return;
   }
 
+  // 🟢 Desktop View
   tbody.innerHTML = filtered.map((w,i) => {
+    const methodStyle = w.method === 'Binance' ? '#f3ba2f' : (w.method === 'bKash' ? '#e2136e' : (w.method === 'Nagad' ? '#f76a20' : '#00D632'));
     return `<tr>
       <td style="color:rgba(255,255,255,0.28);">${i+1}</td>
       <td style="font-weight:800;color:#ff4d4d;font-size:15px;">-$${parseFloat(w.amount||0).toFixed(2)}</td>
-      <td style="color:rgba(255,255,255,0.6);">${w.note || '-'}</td>
-      <td style="color:rgba(255,255,255,0.35);font-size:12px;">${fmtDate(w.created_at)}</td>
+      <td>
+        <span style="background:${methodStyle}20; color:${methodStyle}; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${w.method || 'Bank'}</span>
+        <span style="color:rgba(255,255,255,0.6); margin-left:6px;">${w.note || '-'}</span>
+      </td>
+      <td style="color:rgba(255,255,255,0.35);font-size:12px;">
+         ${fmtDate(w.created_at)}<br>
+         <span class="badge ${w.status === 'completed' ? 'completed' : 'pending'}" style="margin-top:4px;"><span class="badge-dot"></span>${w.status === 'completed' ? 'Paid' : 'Pending'}</span>
+      </td>
     </tr>`;
   }).join('');
 
+  // 🟢 Mobile View
   mList.innerHTML = filtered.map((w,i) => {
+    const methodStyle = w.method === 'Binance' ? '#f3ba2f' : (w.method === 'bKash' ? '#e2136e' : (w.method === 'Nagad' ? '#f76a20' : '#00D632'));
     return `<div class="m-card-w">
       <div class="m-row">
         <div class="m-left">
           <div class="m-amount" style="font-size:20px;font-weight:800;color:#ff4d4d;">-$${parseFloat(w.amount||0).toFixed(2)}</div>
-          <div class="m-addr" style="color:rgba(255,255,255,0.6);">${w.note || 'No note'}</div>
+          <div class="m-addr" style="margin-top:6px;">
+             <span style="background:${methodStyle}20; color:${methodStyle}; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${w.method || 'Bank'}</span>
+             <span style="color:rgba(255,255,255,0.6); font-size:12px; margin-left:6px;">${w.note || 'No note'}</span>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
           <div class="m-time">${fmtDate(w.created_at)}</div>
+          <span class="badge ${w.status === 'completed' ? 'completed' : 'pending'}"><span class="badge-dot"></span>${w.status === 'completed' ? 'Paid' : 'Pending'}</span>
         </div>
       </div>
     </div>`;
   }).join('');
 
   document.getElementById('withdrawalsFooter').textContent = `${filtered.length} withdrawals`;
-}
-
-// 🟢 উইথড্রয়াল এন্ট্রি করার সময় source পাঠানো হচ্ছে
-async function submitWithdrawal() {
-  const amt = parseFloat(document.getElementById('wdAmount').value);
-  const note = document.getElementById('wdNote').value || '';
-  if (!amt || amt <= 0) return alert('Enter a valid amount');
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      // 🟢 'Crystal' சোর্সটি ডেটাবেসে যাচ্ছে
-      body: JSON.stringify({ amount: amt, note: note, source: 'Crystal' })
-    });
-
-    if(!res.ok) {
-        alert("Make sure you have created the 'withdrawals' table with RLS disabled!");
-        return;
-    }
-
-    document.getElementById('wdAmount').value = '';
-    document.getElementById('wdNote').value = '';
-    loadData(); 
-  } catch(e) { console.error(e); }
 }
 
 function switchTab(tab, btn) {
