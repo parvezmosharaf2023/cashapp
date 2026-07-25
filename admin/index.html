@@ -66,10 +66,9 @@ body { font-family:'DM Sans',sans-serif; background:#000; color:#fff; min-height
 .calc-col { flex:1; }
 .calc-input { width:100%; background:#161616; border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px; font-size:16px; color:#fff; outline:none; font-family:'DM Sans'; font-weight:700;}
 .calc-input:focus { border-color:#64b4ff; }
-.calc-input[readonly] { color:#00D632; background:rgba(0,214,50,0.05); border-color:rgba(0,214,50,0.2); }
 .result-box { background:#161616; border-radius:12px; padding:16px; margin-top:20px; border:1px dashed rgba(255,255,255,0.05); }
 .res-line { display:flex; justify-content:space-between; font-size:12px; color:rgba(255,255,255,0.6); margin-bottom:8px; font-weight:500; }
-.res-line.highlight { font-size:16px; font-weight:800; color:#00D632; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1); }
+.res-line.highlight { font-size:18px; font-weight:800; color:#00D632; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1); }
 .save-profit-btn { width:100%; background:linear-gradient(135deg,#00D632,#00903c); color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:800; cursor:pointer; margin-top:20px; font-family:'DM Sans'; transition:all 0.2s; }
 .save-profit-btn:hover { opacity:0.9; transform:translateY(-2px); }
 
@@ -172,19 +171,17 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
 
   <div class="content">
     <div class="stats-grid">
-      <!-- 1. Total Global Settled with All-Time Saved -->
+      <!-- 1. Total Global Settled with All-Time Saved (FIXED UI) -->
       <div class="stat-card blue">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-               <div class="stat-label">Total Global Settled</div>
-               <div class="stat-val" id="statSettled">$0.00</div>
-               <div class="stat-sub">Current table data</div>
-            </div>
-            <div style="text-align:right;">
-               <div class="stat-label" style="color:rgba(255,255,255,0.6);">All-Time Saved</div>
-               <div class="stat-val" style="font-size:16px; color:#64b4ff; margin-bottom:4px;" id="statLifetime">$0.00</div>
-               <button class="btn-profit" style="padding:4px 10px; font-size:9px;" onclick="backupLifetime()">+ Backup</button>
-            </div>
+        <div class="stat-label">Total Global Settled</div>
+        <div class="stat-val" id="statSettled">$0.00</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
+           <div>
+              <div class="stat-label" style="margin-bottom:2px; color:rgba(255,255,255,0.5);">All-Time Saved</div>
+              <div style="font-size:14px; font-weight:800; color:#64b4ff;" id="statLifetime">$0.00</div>
+           </div>
+           <button class="btn-profit" style="padding:6px 14px; font-size:11px;" onclick="backupLifetime()">+ Backup</button>
         </div>
       </div>
 
@@ -195,15 +192,17 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
         <div class="stat-sub">Your totally saved earnings</div>
       </div>
 
-      <!-- 3. Available Balance -->
+      <!-- 3. Available Balance (FIXED UI) -->
       <div class="stat-card">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-               <div class="stat-label">Available Balance</div>
-               <div class="stat-val" id="statAvailable" style="color:#64b4ff;">$0.00</div>
-               <div class="stat-sub">Ready to clear</div>
-            </div>
-            <button class="btn-profit" onclick="openCalcModal()">+ Calc & Save</button>
+        <div class="stat-label">Available Balance</div>
+        <div class="stat-val" id="statAvailable" style="color:#64b4ff;">$0.00</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
+           <div>
+              <div class="stat-label" style="margin-bottom:2px; color:rgba(255,255,255,0.5);">Action</div>
+              <div style="font-size:11px; color:rgba(255,255,255,0.4);">Ready to clear</div>
+           </div>
+           <button class="btn-profit" style="padding:6px 14px; font-size:11px; background:rgba(255,200,0,0.15); color:#ffc800; border-color:rgba(255,200,0,0.3);" onclick="openCalcModal()">+ Calc Profit</button>
         </div>
       </div>
 
@@ -234,7 +233,6 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
         <button class="refresh-btn" onclick="loadData()">⟳ Refresh</button>
       </div>
 
-      <!-- 🟢 NEW: Model Overview Section -->
       <div class="model-overview-scroll" id="modelOverviewGrid">
          <!-- Data injected by JS -->
       </div>
@@ -245,7 +243,7 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
             <thead>
               <tr>
                 <th>Model</th>
-                <th>Invoice / Details</th>
+                <th>Address Details</th>
                 <th>Amount</th>
                 <th>Status / Location</th>
                 <th>Expires</th>
@@ -287,37 +285,41 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
   </div>
 </div>
 
-<!-- 🟢 Profit Calculator Modal -->
+<!-- 🟢 NEW BDT/USD Profit Calculator Modal -->
 <div class="modal-overlay" id="calcModal">
   <div class="modal-content">
     <div class="modal-header">
-      <div class="modal-title">Profit Calculator</div>
+      <div class="modal-title">Profit Calculator (Advanced)</div>
       <button class="modal-close" onclick="closeCalcModal()">×</button>
     </div>
     
-    <div class="field-label">1. System Available Balance (Auto)</div>
-    <input type="number" id="calcAvail" class="calc-input" style="margin-bottom:12px;" readonly>
+    <div class="field-label">1. Amount to Calculate (Model Payout USD)</div>
+    <input type="number" id="calcAvail" class="calc-input" style="margin-bottom:12px; color:#ffc800; border-color:rgba(255,200,0,0.4);" oninput="doMath()">
     
     <div class="field-label">2. Amount Received in Binance (USD)</div>
-    <input type="number" id="calcRecv" class="calc-input" placeholder="e.g. 1528.93" style="margin-bottom:16px;" oninput="doMath()">
+    <input type="number" id="calcRecv" class="calc-input" placeholder="e.g. 10213.47" style="margin-bottom:16px; color:#00D632; border-color:rgba(0,214,50,0.4);" oninput="doMath()">
     
     <div class="calc-row">
       <div class="calc-col">
         <div class="field-label">Sell Rate (BDT)</div>
-        <input type="number" id="calcSell" class="calc-input" placeholder="126.85" oninput="doMath()">
+        <input type="number" id="calcSell" class="calc-input" placeholder="e.g. 128" oninput="doMath()">
       </div>
       <div class="calc-col">
-        <div class="field-label">Buy/Payout Rate</div>
-        <input type="number" id="calcBuy" class="calc-input" placeholder="128.70" oninput="doMath()">
+        <div class="field-label">Buy Rate (Payout BDT)</div>
+        <input type="number" id="calcBuy" class="calc-input" placeholder="e.g. 130" oninput="doMath()">
       </div>
     </div>
 
+    <!-- 🟢 Updated Result Box matching your 7838.jpg Logic -->
     <div class="result-box">
-      <div class="res-line"><span>Crypto Gain (Extra):</span> <span id="resGain">$0.00</span></div>
-      <div class="res-line"><span>Admin 50% Share:</span> <span id="resAdminShare">+$0.00</span></div>
-      <div class="res-line"><span>Total Converted BDT:</span> <span id="resBDT">৳0.00</span></div>
-      <div class="res-line" style="color:#ff5050;"><span>Models Payout Cost:</span> <span id="resCost">-$0.00</span></div>
-      <div class="res-line highlight"><span>Net Profit:</span> <span id="resFinalProfit">$0.00</span></div>
+      <div class="res-line"><span>Total Converted (BDT):</span> <span id="resTotalBDT">৳0.00</span></div>
+      <div class="res-line" style="color:#ff5050;"><span>Models Payout Cost (BDT):</span> <span id="resCostBDT">-৳0.00</span></div>
+      <div class="res-line" style="border-top:1px dashed rgba(255,255,255,0.1); margin-top:8px; padding-top:8px; color:#64b4ff;">
+          <span>Total Profit (BDT):</span> <span id="resTotalProfitBDT">৳0.00</span>
+      </div>
+      <div class="res-line" style="color:#ffc800;"><span>Admin 50% Share (BDT):</span> <span id="resAdminShareBDT">+৳0.00</span></div>
+      
+      <div class="res-line highlight"><span>Net Profit (USD):</span> <span id="resFinalProfit">$0.00</span></div>
     </div>
 
     <button class="save-profit-btn" id="saveProfitBtn" onclick="saveCalculatedProfit()">Confirm & Save Profit</button>
@@ -429,7 +431,6 @@ async function fetchWithdrawals() {
   } catch(e) { console.error(e); }
 }
 
-// 🟢 NEW: Fetch Lifetime Saved Total
 async function fetchLifetimeTotal() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_lifetime_total`, {
@@ -443,17 +444,15 @@ async function fetchLifetimeTotal() {
   } catch(e) { console.error("Error fetching lifetime:", e); }
 }
 
-// 🟢 NEW: Backup Current Settled Amount to Database
+// 🟢 Advanced Error Tracking for Backups
 async function backupLifetime() {
   const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
   const currentTotal = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
   
   if(currentTotal <= 0) return alert("You have $0.00 settled amount to backup right now!");
-  
-  if(!confirm(`Do you want to add the current $${currentTotal.toFixed(2)} to your 'All-Time Saved' record?\n\nTip: You should do this BEFORE deleting old data from the payments table to keep your history intact.`)) return;
+  if(!confirm(`Do you want to add the current $${currentTotal.toFixed(2)} to your 'All-Time Saved' record?`)) return;
 
-  const btn = event.target;
-  btn.disabled = true; btn.textContent = 'Saving...';
+  const btn = event.target; btn.disabled = true; btn.textContent = 'Saving...';
 
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_lifetime_total`, {
@@ -461,13 +460,17 @@ async function backupLifetime() {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_amount: currentTotal, p_pass: sessionStorage.getItem('masterPass') })
     });
+    
     if(res.ok) {
-      alert("Successfully Added! Your All-Time history is updated. You can safely delete the old records from Supabase now.");
+      alert("Successfully Added! Your All-Time history is updated.");
       loadData();
     } else {
-      alert("Database Error! Make sure you executed the Lifetime SQL script in Supabase.");
+      const err = await res.json();
+      alert(`❌ Backup Failed!\nReason: ${err.message || err.details || "Check Supabase RPC function."}`);
     }
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+      alert("❌ Network Error! Please check your internet connection.");
+  }
   btn.disabled = false; btn.textContent = '+ Backup';
 }
 
@@ -480,14 +483,10 @@ function updateStats() {
   
   const profitWd = allWithdrawals.filter(w => w.source === 'Master Admin' && w.method === 'Profit');
   const totalProfitSaved = profitWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
-
-  const sysWd = allWithdrawals.filter(w => w.source === 'Master Admin' && w.method === 'System');
-  const totalSysClear = sysWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
   
   const pendingWdCount = allWithdrawals.filter(w => w.status !== 'completed' && w.source !== 'Master Admin').length;
   
-  // Math: Available = Settled - Paid Models - Saved Profit - System Clear
-  globalAvailable = totalSettled - totalModelWd - totalProfitSaved - totalSysClear;
+  globalAvailable = totalSettled - totalModelWd;
 
   document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
   document.getElementById('statProfit').textContent = '$' + totalProfitSaved.toFixed(2);
@@ -495,7 +494,6 @@ function updateStats() {
   document.getElementById('statPendingWD').textContent = pendingWdCount + ' requests';
 }
 
-// 🟢 NEW: Render Overview of Models
 function renderModelOverview() {
   const stats = {};
   allPayments.forEach(p => {
@@ -524,10 +522,8 @@ function renderModelOverview() {
   container.innerHTML = html;
 }
 
-// 🟢 Calculator Logic
 function openCalcModal() {
-  if (globalAvailable <= 0) return alert("Available Balance is $0.00. No profit to save.");
-  document.getElementById('calcAvail').value = globalAvailable.toFixed(2);
+  document.getElementById('calcAvail').value = globalAvailable > 0 ? globalAvailable.toFixed(2) : '';
   document.getElementById('calcRecv').value = '';
   document.getElementById('calcSell').value = '';
   document.getElementById('calcBuy').value = '';
@@ -535,10 +531,9 @@ function openCalcModal() {
   document.getElementById('calcModal').style.display = 'flex';
 }
 
-function closeCalcModal() {
-  document.getElementById('calcModal').style.display = 'none';
-}
+function closeCalcModal() { document.getElementById('calcModal').style.display = 'none'; }
 
+// 🟢 NEW LOGIC: Perfect Match with User Image 7838.jpg
 function doMath() {
   const A = parseFloat(document.getElementById('calcAvail').value) || 0;
   const R = parseFloat(document.getElementById('calcRecv').value) || 0;
@@ -546,36 +541,36 @@ function doMath() {
   const B = parseFloat(document.getElementById('calcBuy').value) || 0;
 
   if (R === 0 || S === 0 || B === 0) {
-    document.getElementById('resGain').textContent = "$0.00";
-    document.getElementById('resAdminShare').textContent = "+$0.00";
-    document.getElementById('resBDT').textContent = "৳0.00";
-    document.getElementById('resCost').textContent = "-$0.00";
+    document.getElementById('resTotalBDT').textContent = "৳0.00";
+    document.getElementById('resCostBDT').textContent = "-৳0.00";
+    document.getElementById('resTotalProfitBDT').textContent = "৳0.00";
+    document.getElementById('resAdminShareBDT').textContent = "+৳0.00";
     document.getElementById('resFinalProfit').textContent = "$0.00";
     finalCalculatedProfit = 0;
     return;
   }
 
-  const diff = R - A;
-  const half = diff / 2;
-  const totalUsd = A + half;
-  const totalBdt = totalUsd * S;
-  const costUsd = totalBdt / B;
-  finalCalculatedProfit = R - costUsd;
+  const totalConvertedBDT = R * S;
+  const modelsCostBDT = A * B;
+  const totalProfitBDT = totalConvertedBDT - modelsCostBDT;
+  const adminShareBDT = totalProfitBDT / 2;
+  const netProfitUSD = adminShareBDT / S;
+  
+  finalCalculatedProfit = netProfitUSD;
 
-  document.getElementById('resGain').textContent = "$" + diff.toFixed(2);
-  document.getElementById('resAdminShare').textContent = "+$" + half.toFixed(3);
-  document.getElementById('resBDT').textContent = "৳" + totalBdt.toFixed(2);
-  document.getElementById('resCost').textContent = "-$" + costUsd.toFixed(2);
-  document.getElementById('resFinalProfit').textContent = "$" + finalCalculatedProfit.toFixed(2);
+  const fmt = (num) => num.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+  document.getElementById('resTotalBDT').textContent = "৳" + fmt(totalConvertedBDT);
+  document.getElementById('resCostBDT').textContent = "-৳" + fmt(modelsCostBDT);
+  document.getElementById('resTotalProfitBDT').textContent = "৳" + fmt(totalProfitBDT);
+  document.getElementById('resAdminShareBDT').textContent = "+৳" + fmt(adminShareBDT);
+  document.getElementById('resFinalProfit').textContent = "$" + netProfitUSD.toFixed(6); 
 }
 
-// 🟢 API Call to Save Profit & Clear System
+// 🟢 Advanced Error Tracking for Profit Saving
 async function saveCalculatedProfit() {
   if (finalCalculatedProfit <= 0) return alert("Please calculate a valid profit first.");
   
-  const profitToSave = finalCalculatedProfit;
-  const systemClearAmount = globalAvailable - profitToSave;
-
   const btn = document.getElementById('saveProfitBtn');
   btn.disabled = true; btn.textContent = 'Saving...';
 
@@ -583,22 +578,24 @@ async function saveCalculatedProfit() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_save_profit`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        p_profit: profitToSave, 
-        p_clear: systemClearAmount, 
-        p_pass: sessionStorage.getItem('masterPass') 
-      })
+      body: JSON.stringify({ p_profit: finalCalculatedProfit, p_clear: 0, p_pass: sessionStorage.getItem('masterPass') })
     });
     if(res.ok) {
       closeCalcModal();
       loadData();
-      alert("Success! Profit saved and Available Balance cleared.");
-    } else { alert("Failed! Check Master Password or SQL function."); }
-  } catch(e) { console.error(e); }
+      alert("Success! Master Profit saved.");
+    } else { 
+      const err = await res.json();
+      alert(`❌ Save Failed!\nReason: ${err.message || err.details || "Database rejected the action."}`); 
+    }
+  } catch(e) { 
+      alert("❌ Network Error! Check your connection."); 
+  }
   
   btn.disabled = false; btn.textContent = 'Confirm & Save Profit';
 }
 
+// 🟢 Advanced Error Tracking for Marking Paid
 async function toggleMark(invoiceId, currentStatus, btnElement) {
   const newStatus = !currentStatus;
   btnElement.disabled = true; btnElement.textContent = '...';
@@ -608,10 +605,20 @@ async function toggleMark(invoiceId, currentStatus, btnElement) {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_invoice_id: invoiceId, p_is_marked: newStatus, p_pass: sessionStorage.getItem('masterPass') })
     });
-    if (res.ok) loadData(); else alert("Unauthorized!");
-  } catch(e) { btnElement.disabled = false; }
+    if (res.ok) {
+        loadData();
+    } else { 
+        const err = await res.json();
+        alert(`❌ Mark Failed!\nReason: ${err.message || err.details}`);
+        btnElement.disabled = false; btnElement.textContent = 'Mark';
+    }
+  } catch(e) { 
+      alert("❌ Network Error!"); 
+      btnElement.disabled = false; btnElement.textContent = 'Mark';
+  }
 }
 
+// 🟢 Advanced Error Tracking for Completing Withdrawals
 async function completeWithdrawal(id, btnElement) {
   if(!confirm("Mark this as Completed?")) return;
   btnElement.disabled = true; btnElement.textContent = 'Processing...';
@@ -621,13 +628,15 @@ async function completeWithdrawal(id, btnElement) {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_id: id, p_pass: sessionStorage.getItem('masterPass') })
     });
-    if (res.ok) { loadData(); } else {
-      const errData = await res.json();
-      alert("Database Error: " + (errData.message || res.statusText));
+    if (res.ok) { 
+        loadData(); 
+    } else {
+      const err = await res.json();
+      alert(`❌ Database Error!\nReason: ${err.message || err.details}`);
       btnElement.disabled = false; btnElement.textContent = 'Mark Paid';
     }
   } catch(e) { 
-      alert("Network Error!");
+      alert("❌ Network Error! Please check your internet connection.");
       btnElement.disabled = false; btnElement.textContent = 'Mark Paid'; 
   }
 }
@@ -664,12 +673,20 @@ function renderPayments() {
 
   tbody.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,18) + '...';
+    
+    // 🟢 Cash App Address Format
+    const fullAddress = p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const isMarked = p.is_marked === true;
     const model = extractModelName(p.source).toUpperCase();
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
     const locStr = p.city ? `📍 ${p.city}${p.country ? ', '+p.country : ''}` : '📍 Unknown';
+    
     let expirePart = '-';
     if (es === 'expired') expirePart = '<span class="m-expired-pill">Expired</span>';
     else if ((p.status === 'new' || p.status === 'pending') && !p._uiExpired) {
@@ -677,10 +694,14 @@ function renderPayments() {
       expirePart = `<span class="m-expire" data-expire="${expireAt.toISOString()}">...</span>`;
     }
     
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
+    
     return `<tr class="${isMarked ? 'is-marked' : ''}">
       <td><span class="model-badge">${model}</span></td>
       <td>
-         <div class="m-invoice" style="color:rgba(255,255,255,0.7);">${shortId}</div>
+         <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:inline-block; letter-spacing:0.5px;">
+            <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+         </a>
          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
             <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
             <div style="font-size:10px;color:rgba(255,255,255,0.4);">${formatDateTime(p.created_at)}</div>
@@ -695,24 +716,37 @@ function renderPayments() {
 
   mList.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,22) + '...';
+    
+    const fullAddress = p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const isMarked = p.is_marked === true;
     const model = extractModelName(p.source).toUpperCase();
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
     const locStr = p.city ? `📍 ${p.city}${p.country ? ', '+p.country : ''}` : '📍 Unknown';
+    
     let expirePart = '';
     if (es === 'expired') expirePart = '<span class="m-expired-pill">Expired</span>';
     else if ((p.status === 'new' || p.status === 'pending') && !p._uiExpired) {
       const expireAt = new Date(new Date(p.created_at).getTime() + p._expireMins * 60000);
       expirePart = `<span class="m-expire" data-expire="${expireAt.toISOString()}">...</span>`;
     }
+    
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
 
     return `<div class="m-card ${isMarked ? 'is-marked' : ''}">
       <div class="m-row">
         <div class="m-left">
            <div style="margin-bottom:8px;"><span class="model-badge">${model}</span></div>
-           <div class="m-invoice" style="color:rgba(255,255,255,0.6);">${shortId}</div>
+           
+           <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:block; letter-spacing:0.5px;">
+              <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+           </a>
+           
            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
               <span style="font-size:9px;font-weight:800;color:${methodColor};background:rgba(255,255,255,0.05);padding:3px 6px;border-radius:4px;">${methodStr}</span>
               <div style="color:rgba(255,255,255,0.5);font-size:11px;">${formatDateTime(p.created_at)}</div>
