@@ -79,9 +79,19 @@ serve(async (req: Request) => {
         }
       } catch (pmErr) { console.error('[PM error]', pmErr) }
 
-      // 🟢 PENDING STATUS FIX 🟢
+      // 🟢 PENDING STATUS FIX WITH ADDRESS INSERTION 🟢
       const { error: dbErr } = await supabase.from('payments').insert({
-        invoice_id: invoiceId, amount, currency: 'USD', status: 'pending', payment_type: paymentType, source, email, city: cfCity, country: cfCountry
+        invoice_id: invoiceId, 
+        amount, 
+        currency: 'USD', 
+        status: 'pending', 
+        payment_type: paymentType, 
+        source, 
+        email, 
+        city: cfCity, 
+        country: cfCountry,
+        payment_request: lightningCode, // 🟢 Lightning Address (lnbc...)
+        wallet_address: btcAddress      // 🟢 On-chain Address (bc1...)
       })
 
       if (dbErr) { return new Response(JSON.stringify({ error: 'Failed to save payment' }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }) }
