@@ -674,8 +674,8 @@ function renderPayments() {
   tbody.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
     
-    // 🟢 Cash App Address Format
-    const fullAddress = p.invoice_id || '';
+    // 🟢 Cash App Address Format (Now fetches from payment_request or wallet_address first)
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
     let displayAddress = fullAddress;
     if (fullAddress.length > 25) {
         displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
@@ -717,7 +717,8 @@ function renderPayments() {
   mList.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
     
-    const fullAddress = p.invoice_id || '';
+    // 🟢 Mobile: Cash App Address Format
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
     let displayAddress = fullAddress;
     if (fullAddress.length > 25) {
         displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
