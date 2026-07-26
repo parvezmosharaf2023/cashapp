@@ -209,7 +209,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
             <thead>
               <tr>
                 <th>#</th>
-                <th>Invoice ID / Time</th>
+                <th>Address Details</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>City</th>
@@ -285,7 +285,7 @@ let allPayments = [], allWithdrawals = [], currentPayPage = 1;
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  
+
   if (u === ADMIN_USER && p !== '') {
     sessionStorage.setItem('adminAuth', 'true');
     sessionStorage.setItem('typedPass', p);
@@ -306,6 +306,7 @@ function showLoginError() {
   sessionStorage.removeItem('adminAuth');
 }
 
+// 🟢 Advanced Error Tracking for Marking
 async function toggleMark(invoiceId, currentStatus, btnElement) {
   const newStatus = !currentStatus;
   btnElement.disabled = true; 
@@ -324,18 +325,25 @@ async function toggleMark(invoiceId, currentStatus, btnElement) {
       const pIndex = allPayments.findIndex(x => x.invoice_id === invoiceId);
       if (pIndex > -1) { allPayments[pIndex].is_marked = newStatus; renderPayments(); }
     } else {
-      alert("Unauthorized! Incorrect password or read-only error.");
+      const err = await res.json();
+      alert(`❌ Mark Failed!\nReason: ${err.message || err.details || "Unauthorized! Incorrect password."}`);
       if(res.status === 401 || res.status === 400) doLogout();
       btnElement.disabled = false;
+      btnElement.textContent = 'Mark';
     }
-  } catch(e) { btnElement.disabled = false; }
+  } catch(e) { 
+      alert("❌ Network Error!");
+      btnElement.disabled = false; 
+      btnElement.textContent = 'Mark';
+  }
 }
 
+// 🟢 Advanced Error Tracking for Withdrawals
 async function submitWithdrawal() {
   const amt = parseFloat(document.getElementById('wdAmount').value);
   const method = document.getElementById('wdMethod').value;
   const note = document.getElementById('wdNote').value || '';
-  
+
   if (!amt || amt <= 0) return alert('Enter a valid amount');
   if (!note) return alert('Enter account details (Address/Number)');
 
@@ -350,20 +358,32 @@ async function submitWithdrawal() {
       document.getElementById('wdAmount').value = '';
       document.getElementById('wdNote').value = '';
       loadData(); 
-    } else { alert("Failed! Check password."); }
-  } catch(e) { console.error(e); }
+      alert("Success! Withdrawal requested.");
+    } else { 
+      const err = await res.json();
+      alert(`❌ Request Failed!\nReason: ${err.message || err.details || "Check password or balance."}`); 
+    }
+  } catch(e) { 
+      alert("❌ Network Error! Check your connection.");
+  }
 }
 
-// 🟢 Beauty Queen এর ডেটা ফেচ করার লজিক
+// 🟢 1000+ Row Limit Fix (Pagination Loop)
 async function fetchPayments() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*beauty-queen*&order=created_at.desc`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
-    let data = await res.json();
-    if (data.error) return;
+    let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
+    while(keepFetching) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*beauty-queen*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      let data = await res.json();
+      if (data.error || data.length === 0) break;
+      allFetchedData = allFetchedData.concat(data);
+      if (data.length < limit) keepFetching = false; else offset += limit;
+    }
+    
     const now = new Date();
-    allPayments = data.map(p => {
+    allPayments = allFetchedData.map(p => {
       p._expireMins = (p.payment_type && p.payment_type.toLowerCase() === 'usdc') ? 15 : 60;
       if (p.status === 'new' || p.status === 'pending') {
         const diffMin = (now - new Date(p.created_at)) / 60000;
@@ -374,13 +394,20 @@ async function fetchPayments() {
   } catch(e) { console.error(e); }
 }
 
+// 🟢 1000+ Row Limit Fix
 async function fetchWithdrawals() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=ilike.*beauty-queen*&order=created_at.desc`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
-    let data = await res.json();
-    if(!data.error) allWithdrawals = data;
+    let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
+    while(keepFetching) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=ilike.*beauty-queen*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      let data = await res.json();
+      if (data.error || data.length === 0) break;
+      allFetchedData = allFetchedData.concat(data);
+      if (data.length < limit) keepFetching = false; else offset += limit;
+    }
+    allWithdrawals = allFetchedData;
   } catch(e) { console.error(e); }
 }
 
@@ -430,7 +457,7 @@ function getFilteredPayments() {
     if (p._uiExpired) es = 'expired';
     if (statusFilter === 'pending' && (es !== 'pending' && es !== 'new')) return false;
     else if (statusFilter && statusFilter !== 'pending' && es !== statusFilter) return false;
-    if (search && !(p.invoice_id||'').toLowerCase().includes(search)) return false;
+    if (search && !(p.invoice_id||'').toLowerCase().includes(search) && !(p.payment_request||'').toLowerCase().includes(search) && !(p.wallet_address||'').toLowerCase().includes(search)) return false;
     if (dateFilter) {
       const d = new Date(p.created_at), now = new Date();
       if (dateFilter === 'today') { const t=new Date(); t.setHours(0,0,0,0); if(d<t) return false; }
@@ -474,16 +501,27 @@ function renderPayments() {
   tbody.innerHTML = paginated.map((p, index) => {
     let es = p.status;
     if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,18) + '...';
+    
+    // 🟢 Cash App Address Format
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const globalIndex = start + index + 1;
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
     const isMarked = p.is_marked === true;
+    
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
 
     return `<tr class="${isMarked ? 'is-marked' : ''}">
       <td style="color:rgba(255,255,255,0.28);">${globalIndex}</td>
       <td>
-        <div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.55);" title="${p.invoice_id}">${shortId}</div>
+         <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:inline-block; letter-spacing:0.5px;">
+            <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+         </a>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
           <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
           <div style="font-size:10px;color:rgba(255,255,255,0.25);">${fmtTime(p.created_at)}</div>
@@ -508,7 +546,13 @@ function renderPayments() {
   mList.innerHTML = paginated.map((p) => {
     let es = p.status;
     if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,22) + '...';
+    
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
 
@@ -521,13 +565,16 @@ function renderPayments() {
       expirePart = `<span class="m-expire" data-expire="${expireAt.toISOString()}">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
     }
     const isMarked = p.is_marked === true;
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
 
     return `<div class="m-card ${isMarked ? 'is-marked' : ''}">
       <div class="m-row">
         <div class="m-left">
-          <div class="m-invoice" title="${p.invoice_id}">${shortId}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
+           <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:block; letter-spacing:0.5px;">
+              <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+           </a>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:3px 6px;border-radius:4px;">${methodStr}</span>
             <div class="m-time" style="margin-top:0;">${fmtDate(p.created_at)}</div>
           </div>
         </div>
