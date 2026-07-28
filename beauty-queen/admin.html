@@ -21,6 +21,7 @@ body { font-family:'DM Sans',sans-serif; background:#000; color:#fff; min-height
 .login-btn { width:100%; background:linear-gradient(135deg,#00D632,#00903c); color:#fff; border:none; border-radius:14px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; box-shadow:0 5px 24px rgba(0,214,50,0.35); transition:all 0.25s; letter-spacing:0.02em; }
 .login-btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,214,50,0.45); }
 .login-btn:active { transform:translateY(0); }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .login-error { color:#ff4d4d; font-size:13px; text-align:center; margin-top:14px; display:none; font-weight:600; }
 
 /* ══════ DASHBOARD ══════ */
@@ -131,7 +132,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
     <div class="field-label">Password</div>
     <input type="password" id="loginPass" class="field-input" placeholder="Enter password" autocomplete="current-password"
       onkeydown="if(event.key==='Enter') doLogin()">
-    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <button class="login-btn" id="loginSubmitBtn" onclick="doLogin()">Sign In →</button>
     <div class="login-error" id="loginError">Invalid username or password</div>
   </div>
 </div>
@@ -277,29 +278,58 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
 const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
 
-// 🟢 Beauty Queen এর জন্য ইউজারনেম 'beauty-queen'
 const ADMIN_USER = 'beauty-queen';
 const PER_PAGE = 25;
 let allPayments = [], allWithdrawals = [], currentPayPage = 1;
 
+// 🟢 Secure Database-Driven Login (No Hardcoded Passwords!)
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
+  const btn = document.getElementById('loginSubmitBtn');
 
-  if (u === ADMIN_USER && p !== '') {
-    sessionStorage.setItem('adminAuth', 'true');
-    sessionStorage.setItem('typedPass', p);
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    loadData();
-    startCountdownTick();
-  } else {
-    showLoginError();
+  if (u !== ADMIN_USER || p === '') {
+    showLoginError("Invalid username or password");
+    return;
   }
+
+  // 🟢 Checking password directly against the database logic
+  btn.textContent = "Checking...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_mark`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
+      },
+      // We pass a fake invoice just to trigger the password check logic
+      body: JSON.stringify({ p_invoice_id: 'fake_login_verification', p_is_marked: false, p_pass: p })
+    });
+
+    if (res.ok) {
+      // ✅ Database accepted the password!
+      sessionStorage.setItem('adminAuth', 'true');
+      sessionStorage.setItem('typedPass', p);
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadData();
+      startCountdownTick();
+    } else {
+      // ❌ Database rejected the password
+      showLoginError("Wrong password!");
+    }
+  } catch (e) {
+    showLoginError("Network connection error");
+  }
+
+  btn.textContent = "Sign In →";
+  btn.disabled = false;
 }
 
-function showLoginError() {
+function showLoginError(msg) {
   const err = document.getElementById('loginError');
+  err.textContent = msg || "Invalid username or password";
   err.style.display = 'block';
   err.style.animation = 'none';
   setTimeout(() => err.style.animation = '', 10);
