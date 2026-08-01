@@ -319,7 +319,7 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
     <button class="save-profit-btn" id="saveProfitBtn" onclick="saveCalculatedProfit()">Confirm & Save Profit</button>
   </div>
 </div>
-
+    
 <script>
 const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
@@ -346,19 +346,53 @@ function extractModelName(urlStr) {
   return urlStr;
 }
 
-function doLogin() {
+// 🟢 NEW HIGH-SECURITY LOGIN SYSTEM 🟢
+async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  if (u === ADMIN_USER && p !== '') {
-    sessionStorage.setItem('masterAuth', 'true');
-    sessionStorage.setItem('masterPass', p); 
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    loadData();
-    startCountdownTick();
-  } else {
-    document.getElementById('loginError').style.display = 'block';
+  const btn = document.querySelector('.login-btn');
+
+  if (u !== ADMIN_USER || p === '') {
+    const err = document.getElementById('loginError');
+    err.textContent = "Access Denied: Invalid Username";
+    err.style.display = 'block';
+    return;
   }
+
+  btn.textContent = "Checking...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_mark`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_invoice_id: 'fake_login_verification', p_is_marked: false, p_pass: p })
+    });
+
+    if (res.ok) {
+      sessionStorage.setItem('masterAuth', 'true');
+      sessionStorage.setItem('masterPass', p); 
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadData();
+      startCountdownTick();
+    } else {
+      const err = document.getElementById('loginError');
+      err.textContent = "Access Denied: Wrong Password!";
+      err.style.display = 'block';
+    }
+  } catch (e) {
+    const err = document.getElementById('loginError');
+    err.textContent = "Network Error! Check your connection.";
+    err.style.display = 'block';
+  }
+
+  btn.textContent = "Secure Login →";
+  btn.disabled = false;
 }
 
 function doLogout() {
@@ -471,7 +505,6 @@ function updateStats() {
   const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
   const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
   
-  // 🟢 BUG FIX 3 & 4: Subtract BOTH completed & pending model withdrawals AND master profit.
   const modelWd = allWithdrawals.filter(w => (w.status === 'completed' || w.status === 'pending') && w.source !== 'Master Admin');
   const totalModelWd = modelWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
   
