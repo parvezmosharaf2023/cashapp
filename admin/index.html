@@ -480,7 +480,7 @@ function updateStats() {
   
   const pendingWdCount = allWithdrawals.filter(w => w.status === 'pending' && w.source !== 'Master Admin').length;
   
-  globalAvailable = totalSettled - totalModelWd - totalProfitSaved;
+  globalAvailable = totalSettled - totalModelWd;
 
   document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
   document.getElementById('statProfit').textContent = '$' + totalProfitSaved.toFixed(2);
