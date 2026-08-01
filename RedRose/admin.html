@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Panel - Red Rose</title>
+<!-- The page title will automatically update based on MODEL_ID -->
+<title>Admin Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -21,6 +22,7 @@ body { font-family:'DM Sans',sans-serif; background:#000; color:#fff; min-height
 .login-btn { width:100%; background:linear-gradient(135deg,#00D632,#00903c); color:#fff; border:none; border-radius:14px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; box-shadow:0 5px 24px rgba(0,214,50,0.35); transition:all 0.25s; letter-spacing:0.02em; }
 .login-btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,214,50,0.45); }
 .login-btn:active { transform:translateY(0); }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .login-error { color:#ff4d4d; font-size:13px; text-align:center; margin-top:14px; display:none; font-weight:600; }
 
 /* ══════ DASHBOARD ══════ */
@@ -125,13 +127,13 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
   <div class="login-card">
     <div class="login-logo">$</div>
     <div class="login-title">Admin Panel</div>
-    <div class="login-sub">Red Rose</div>
+    <div class="login-sub" id="loginSubTitle">Model</div>
     <div class="field-label">Username</div>
     <input type="text" id="loginUser" class="field-input" placeholder="Enter username" autocomplete="username">
     <div class="field-label">Password</div>
     <input type="password" id="loginPass" class="field-input" placeholder="Enter password" autocomplete="current-password"
       onkeydown="if(event.key==='Enter') doLogin()">
-    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <button class="login-btn" id="loginSubmitBtn" onclick="doLogin()">Sign In →</button>
     <div class="login-error" id="loginError">Invalid username or password</div>
   </div>
 </div>
@@ -142,7 +144,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
       <div class="topbar-icon">$</div>
       <div>
         <div class="topbar-title">Admin Panel</div>
-        <div class="topbar-sub">Red Rose</div>
+        <div class="topbar-sub" id="topbarSubTitle">Model</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -209,7 +211,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
             <thead>
               <tr>
                 <th>#</th>
-                <th>Invoice ID / Time</th>
+                <th>Address Details</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>City</th>
@@ -274,32 +276,67 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
 </div>
 
 <script>
+// 🟢 ==============================================
+// 🟢 CONFIGURATION AREA - CHANGE ONLY THIS PART!
+// 🟢 ==============================================
+const MODEL_ID = 'RedRose';      // Examples: 'Rose', 'RedRose', 'Sophia', 'beauty-girl'
+const ADMIN_USER = 'redrose';    // User ID required to login
+// 🟢 ==============================================
+
+// Set up UI dynamically
+document.title = `Admin Panel - ${MODEL_ID}`;
+document.getElementById('loginSubTitle').textContent = MODEL_ID;
+document.getElementById('topbarSubTitle').textContent = MODEL_ID;
+
 const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
 
-// 🟢 RedRose এর জন্য ইউজারনেম 'redrose' 
-const ADMIN_USER = 'redrose';
 const PER_PAGE = 25;
 let allPayments = [], allWithdrawals = [], currentPayPage = 1;
 
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  
-  if (u === ADMIN_USER && p !== '') {
-    sessionStorage.setItem('adminAuth', 'true');
-    sessionStorage.setItem('typedPass', p);
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    loadData();
-    startCountdownTick();
-  } else {
-    showLoginError();
+  const btn = document.getElementById('loginSubmitBtn');
+
+  if (u !== ADMIN_USER || p === '') {
+    showLoginError("Invalid username or password");
+    return;
   }
+
+  btn.textContent = "Checking...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_mark`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_invoice_id: 'fake_login_verification', p_is_marked: false, p_pass: p })
+    });
+
+    if (res.ok) {
+      sessionStorage.setItem('adminAuth', 'true');
+      sessionStorage.setItem('typedPass', p);
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadData();
+      startCountdownTick();
+    } else {
+      showLoginError("Wrong password!");
+    }
+  } catch (e) {
+    showLoginError("Network connection error");
+  }
+
+  btn.textContent = "Sign In →";
+  btn.disabled = false;
 }
 
-function showLoginError() {
+function showLoginError(msg) {
   const err = document.getElementById('loginError');
+  err.textContent = msg || "Invalid username or password";
   err.style.display = 'block';
   err.style.animation = 'none';
   setTimeout(() => err.style.animation = '', 10);
@@ -324,18 +361,24 @@ async function toggleMark(invoiceId, currentStatus, btnElement) {
       const pIndex = allPayments.findIndex(x => x.invoice_id === invoiceId);
       if (pIndex > -1) { allPayments[pIndex].is_marked = newStatus; renderPayments(); }
     } else {
-      alert("Unauthorized! Incorrect password or read-only error.");
+      const err = await res.json();
+      alert(`❌ Mark Failed!\nReason: ${err.message || err.details || "Unauthorized!"}`);
       if(res.status === 401 || res.status === 400) doLogout();
       btnElement.disabled = false;
+      btnElement.textContent = 'Mark';
     }
-  } catch(e) { btnElement.disabled = false; }
+  } catch(e) { 
+      alert("❌ Network Error!");
+      btnElement.disabled = false; 
+      btnElement.textContent = 'Mark';
+  }
 }
 
 async function submitWithdrawal() {
   const amt = parseFloat(document.getElementById('wdAmount').value);
   const method = document.getElementById('wdMethod').value;
   const note = document.getElementById('wdNote').value || '';
-  
+
   if (!amt || amt <= 0) return alert('Enter a valid amount');
   if (!note) return alert('Enter account details (Address/Number)');
 
@@ -343,27 +386,39 @@ async function submitWithdrawal() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/request_withdrawal`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_amount: amt, p_method: method, p_note: note, p_source: 'RedRose', p_pass: sessionStorage.getItem('typedPass') })
+      body: JSON.stringify({ p_amount: amt, p_method: method, p_note: note, p_source: MODEL_ID, p_pass: sessionStorage.getItem('typedPass') })
     });
 
     if(res.ok) {
       document.getElementById('wdAmount').value = '';
       document.getElementById('wdNote').value = '';
       loadData(); 
-    } else { alert("Failed! Check password."); }
-  } catch(e) { console.error(e); }
+      alert("Success! Withdrawal requested.");
+    } else { 
+      const err = await res.json();
+      alert(`❌ Request Failed!\nReason: ${err.message || err.details}`); 
+    }
+  } catch(e) { 
+      alert("❌ Network Error! Check your connection.");
+  }
 }
 
-// 🟢 RedRose এর ডেটা ফেচ করার লজিক
+// 🟢 BUG FIX 1 & 2: Added exact source pattern matching & pagination loops
 async function fetchPayments() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*RedRose*&order=created_at.desc`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
-    let data = await res.json();
-    if (data.error) return;
+    let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
+    while(keepFetching) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*%2F${MODEL_ID}*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      let data = await res.json();
+      if (data.error || data.length === 0) break;
+      allFetchedData = allFetchedData.concat(data);
+      if (data.length < limit) keepFetching = false; else offset += limit;
+    }
+    
     const now = new Date();
-    allPayments = data.map(p => {
+    allPayments = allFetchedData.map(p => {
       p._expireMins = (p.payment_type && p.payment_type.toLowerCase() === 'usdc') ? 15 : 60;
       if (p.status === 'new' || p.status === 'pending') {
         const diffMin = (now - new Date(p.created_at)) / 60000;
@@ -376,11 +431,17 @@ async function fetchPayments() {
 
 async function fetchWithdrawals() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=ilike.*RedRose*&order=created_at.desc`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
-    let data = await res.json();
-    if(!data.error) allWithdrawals = data;
+    let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
+    while(keepFetching) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=eq.${MODEL_ID}&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      let data = await res.json();
+      if (data.error || data.length === 0) break;
+      allFetchedData = allFetchedData.concat(data);
+      if (data.length < limit) keepFetching = false; else offset += limit;
+    }
+    allWithdrawals = allFetchedData;
   } catch(e) { console.error(e); }
 }
 
@@ -390,8 +451,11 @@ function updateStats() {
   const expired = allPayments.filter(p => p.status === 'expired' || p._uiExpired);
 
   const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
-  const completedWd = allWithdrawals.filter(w => w.status === 'completed');
-  const totalWithdrawn = completedWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
+  
+  // 🟢 BUG FIX 4: Subtract BOTH completed & pending withdrawals so pending requests don't look available
+  const activeWd = allWithdrawals.filter(w => w.status === 'completed' || w.status === 'pending');
+  const totalWithdrawn = activeWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
+  
   const available = totalSettled - totalWithdrawn;
 
   document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
@@ -430,7 +494,7 @@ function getFilteredPayments() {
     if (p._uiExpired) es = 'expired';
     if (statusFilter === 'pending' && (es !== 'pending' && es !== 'new')) return false;
     else if (statusFilter && statusFilter !== 'pending' && es !== statusFilter) return false;
-    if (search && !(p.invoice_id||'').toLowerCase().includes(search)) return false;
+    if (search && !(p.invoice_id||'').toLowerCase().includes(search) && !(p.payment_request||'').toLowerCase().includes(search) && !(p.wallet_address||'').toLowerCase().includes(search)) return false;
     if (dateFilter) {
       const d = new Date(p.created_at), now = new Date();
       if (dateFilter === 'today') { const t=new Date(); t.setHours(0,0,0,0); if(d<t) return false; }
@@ -474,16 +538,26 @@ function renderPayments() {
   tbody.innerHTML = paginated.map((p, index) => {
     let es = p.status;
     if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,18) + '...';
+    
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const globalIndex = start + index + 1;
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
     const isMarked = p.is_marked === true;
+    
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
 
     return `<tr class="${isMarked ? 'is-marked' : ''}">
       <td style="color:rgba(255,255,255,0.28);">${globalIndex}</td>
       <td>
-        <div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.55);" title="${p.invoice_id}">${shortId}</div>
+         <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:inline-block; letter-spacing:0.5px;">
+            <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+         </a>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
           <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
           <div style="font-size:10px;color:rgba(255,255,255,0.25);">${fmtTime(p.created_at)}</div>
@@ -508,7 +582,13 @@ function renderPayments() {
   mList.innerHTML = paginated.map((p) => {
     let es = p.status;
     if (p._uiExpired) es = 'expired';
-    const shortId = (p.invoice_id||'').substring(0,22) + '...';
+    
+    const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
+    let displayAddress = fullAddress;
+    if (fullAddress.length > 25) {
+        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
+    }
+    
     const methodStr = p.payment_type ? p.payment_type.toUpperCase() : 'LIGHTNING';
     const methodColor = methodStr === 'USDC' ? '#00D632' : (methodStr === 'ONCHAIN' ? '#f7931a' : '#ffc400');
 
@@ -521,13 +601,16 @@ function renderPayments() {
       expirePart = `<span class="m-expire" data-expire="${expireAt.toISOString()}">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
     }
     const isMarked = p.is_marked === true;
+    const explorerUrl = `https://mempool.space/search?q=${fullAddress}`;
 
     return `<div class="m-card ${isMarked ? 'is-marked' : ''}">
       <div class="m-row">
         <div class="m-left">
-          <div class="m-invoice" title="${p.invoice_id}">${shortId}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">${methodStr}</span>
+           <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:block; letter-spacing:0.5px;">
+              <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
+           </a>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <span style="font-size:9px;font-weight:700;color:${methodColor};background:rgba(255,255,255,0.05);padding:3px 6px;border-radius:4px;">${methodStr}</span>
             <div class="m-time" style="margin-top:0;">${fmtDate(p.created_at)}</div>
           </div>
         </div>
