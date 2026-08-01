@@ -171,7 +171,7 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
 
   <div class="content">
     <div class="stats-grid">
-      <!-- 1. Total Global Settled with All-Time Saved (FIXED UI) -->
+      <!-- 1. Total Global Settled -->
       <div class="stat-card blue">
         <div class="stat-label">Total Global Settled</div>
         <div class="stat-val" id="statSettled">$0.00</div>
@@ -192,7 +192,7 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
         <div class="stat-sub">Your totally saved earnings</div>
       </div>
 
-      <!-- 3. Available Balance (FIXED UI) -->
+      <!-- 3. Available Balance -->
       <div class="stat-card">
         <div class="stat-label">Available Balance</div>
         <div class="stat-val" id="statAvailable" style="color:#64b4ff;">$0.00</div>
@@ -220,7 +220,6 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
       <button class="tab-btn" onclick="switchTab('withdrawals', this)">💸 Manage Withdrawals & Profits</button>
     </div>
 
-    <!-- Payments Tab -->
     <div id="tab-payments">
       <div class="filter-bar">
         <select class="filter-select" id="filterStatus" onchange="resetAndRenderPayments()">
@@ -233,9 +232,7 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
         <button class="refresh-btn" onclick="loadData()">⟳ Refresh</button>
       </div>
 
-      <div class="model-overview-scroll" id="modelOverviewGrid">
-         <!-- Data injected by JS -->
-      </div>
+      <div class="model-overview-scroll" id="modelOverviewGrid"></div>
 
       <div class="table-wrap">
         <div class="table-scroll">
@@ -259,7 +256,6 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
       </div>
     </div>
 
-    <!-- Withdrawals Tab -->
     <div id="tab-withdrawals" style="display:none;">
       <div class="filter-bar"><button class="refresh-btn" onclick="loadData()">⟳ Refresh List</button></div>
       <div class="table-wrap">
@@ -285,7 +281,6 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
   </div>
 </div>
 
-<!-- 🟢 NEW BDT/USD Profit Calculator Modal -->
 <div class="modal-overlay" id="calcModal">
   <div class="modal-content">
     <div class="modal-header">
@@ -310,7 +305,6 @@ tbody td { padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(255,2
       </div>
     </div>
 
-    <!-- 🟢 Updated Result Box matching your 7838.jpg Logic -->
     <div class="result-box">
       <div class="res-line"><span>Total Converted (BDT):</span> <span id="resTotalBDT">৳0.00</span></div>
       <div class="res-line" style="color:#ff5050;"><span>Models Payout Cost (BDT):</span> <span id="resCostBDT">-৳0.00</span></div>
@@ -441,10 +435,9 @@ async function fetchLifetimeTotal() {
       const lifetime = await res.json();
       document.getElementById('statLifetime').textContent = '$' + (parseFloat(lifetime) || 0).toFixed(2);
     }
-  } catch(e) { console.error("Error fetching lifetime:", e); }
+  } catch(e) { console.error(e); }
 }
 
-// 🟢 Advanced Error Tracking for Backups
 async function backupLifetime() {
   const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
   const currentTotal = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
@@ -466,10 +459,10 @@ async function backupLifetime() {
       loadData();
     } else {
       const err = await res.json();
-      alert(`❌ Backup Failed!\nReason: ${err.message || err.details || "Check Supabase RPC function."}`);
+      alert(`❌ Backup Failed!\nReason: ${err.message || err.details}`);
     }
   } catch(e) { 
-      alert("❌ Network Error! Please check your internet connection.");
+      alert("❌ Network Error!");
   }
   btn.disabled = false; btn.textContent = '+ Backup';
 }
@@ -478,15 +471,16 @@ function updateStats() {
   const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
   const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
   
-  const modelWd = allWithdrawals.filter(w => w.status === 'completed' && w.source !== 'Master Admin');
+  // 🟢 BUG FIX 3 & 4: Subtract BOTH completed & pending model withdrawals AND master profit.
+  const modelWd = allWithdrawals.filter(w => (w.status === 'completed' || w.status === 'pending') && w.source !== 'Master Admin');
   const totalModelWd = modelWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
   
-  const profitWd = allWithdrawals.filter(w => w.source === 'Master Admin' && w.method === 'Profit');
+  const profitWd = allWithdrawals.filter(w => (w.status === 'completed' || w.status === 'pending') && w.source === 'Master Admin' && w.method === 'Profit');
   const totalProfitSaved = profitWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
   
-  const pendingWdCount = allWithdrawals.filter(w => w.status !== 'completed' && w.source !== 'Master Admin').length;
+  const pendingWdCount = allWithdrawals.filter(w => w.status === 'pending' && w.source !== 'Master Admin').length;
   
-  globalAvailable = totalSettled - totalModelWd;
+  globalAvailable = totalSettled - totalModelWd - totalProfitSaved;
 
   document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
   document.getElementById('statProfit').textContent = '$' + totalProfitSaved.toFixed(2);
@@ -533,7 +527,6 @@ function openCalcModal() {
 
 function closeCalcModal() { document.getElementById('calcModal').style.display = 'none'; }
 
-// 🟢 NEW LOGIC: Perfect Match with User Image 7838.jpg
 function doMath() {
   const A = parseFloat(document.getElementById('calcAvail').value) || 0;
   const R = parseFloat(document.getElementById('calcRecv').value) || 0;
@@ -567,7 +560,6 @@ function doMath() {
   document.getElementById('resFinalProfit').textContent = "$" + netProfitUSD.toFixed(6); 
 }
 
-// 🟢 Advanced Error Tracking for Profit Saving
 async function saveCalculatedProfit() {
   if (finalCalculatedProfit <= 0) return alert("Please calculate a valid profit first.");
   
@@ -586,16 +578,15 @@ async function saveCalculatedProfit() {
       alert("Success! Master Profit saved.");
     } else { 
       const err = await res.json();
-      alert(`❌ Save Failed!\nReason: ${err.message || err.details || "Database rejected the action."}`); 
+      alert(`❌ Save Failed!\nReason: ${err.message || err.details}`); 
     }
   } catch(e) { 
-      alert("❌ Network Error! Check your connection."); 
+      alert("❌ Network Error!"); 
   }
   
   btn.disabled = false; btn.textContent = 'Confirm & Save Profit';
 }
 
-// 🟢 Advanced Error Tracking for Marking Paid
 async function toggleMark(invoiceId, currentStatus, btnElement) {
   const newStatus = !currentStatus;
   btnElement.disabled = true; btnElement.textContent = '...';
@@ -605,20 +596,11 @@ async function toggleMark(invoiceId, currentStatus, btnElement) {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_invoice_id: invoiceId, p_is_marked: newStatus, p_pass: sessionStorage.getItem('masterPass') })
     });
-    if (res.ok) {
-        loadData();
-    } else { 
-        const err = await res.json();
-        alert(`❌ Mark Failed!\nReason: ${err.message || err.details}`);
-        btnElement.disabled = false; btnElement.textContent = 'Mark';
-    }
-  } catch(e) { 
-      alert("❌ Network Error!"); 
-      btnElement.disabled = false; btnElement.textContent = 'Mark';
-  }
+    if (res.ok) { loadData(); } 
+    else { btnElement.disabled = false; btnElement.textContent = 'Mark'; }
+  } catch(e) { btnElement.disabled = false; btnElement.textContent = 'Mark'; }
 }
 
-// 🟢 Advanced Error Tracking for Completing Withdrawals
 async function completeWithdrawal(id, btnElement) {
   if(!confirm("Mark this as Completed?")) return;
   btnElement.disabled = true; btnElement.textContent = 'Processing...';
@@ -628,17 +610,9 @@ async function completeWithdrawal(id, btnElement) {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_id: id, p_pass: sessionStorage.getItem('masterPass') })
     });
-    if (res.ok) { 
-        loadData(); 
-    } else {
-      const err = await res.json();
-      alert(`❌ Database Error!\nReason: ${err.message || err.details}`);
-      btnElement.disabled = false; btnElement.textContent = 'Mark Paid';
-    }
-  } catch(e) { 
-      alert("❌ Network Error! Please check your internet connection.");
-      btnElement.disabled = false; btnElement.textContent = 'Mark Paid'; 
-  }
+    if (res.ok) { loadData(); } 
+    else { btnElement.disabled = false; btnElement.textContent = 'Mark Paid'; }
+  } catch(e) { btnElement.disabled = false; btnElement.textContent = 'Mark Paid'; }
 }
 
 function resetAndRenderPayments() { currentPayPage = 1; renderPayments(); }
@@ -673,13 +647,9 @@ function renderPayments() {
 
   tbody.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
-    
-    // 🟢 Cash App Address Format (Now fetches from payment_request or wallet_address first)
     const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
     let displayAddress = fullAddress;
-    if (fullAddress.length > 25) {
-        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
-    }
+    if (fullAddress.length > 25) { displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9); }
     
     const isMarked = p.is_marked === true;
     const model = extractModelName(p.source).toUpperCase();
@@ -716,13 +686,9 @@ function renderPayments() {
 
   mList.innerHTML = paginated.map(p => {
     let es = p.status; if (p._uiExpired) es = 'expired';
-    
-    // 🟢 Mobile: Cash App Address Format
     const fullAddress = p.payment_request || p.wallet_address || p.invoice_id || '';
     let displayAddress = fullAddress;
-    if (fullAddress.length > 25) {
-        displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9);
-    }
+    if (fullAddress.length > 25) { displayAddress = fullAddress.substring(0, 12) + '...' + fullAddress.substring(fullAddress.length - 9); }
     
     const isMarked = p.is_marked === true;
     const model = extractModelName(p.source).toUpperCase();
@@ -743,11 +709,9 @@ function renderPayments() {
       <div class="m-row">
         <div class="m-left">
            <div style="margin-bottom:8px;"><span class="model-badge">${model}</span></div>
-           
            <a href="${explorerUrl}" target="_blank" title="Verify on Blockchain: ${fullAddress}" style="color:#64b4ff; text-decoration:none; font-family:monospace; font-size:13px; display:block; letter-spacing:0.5px;">
               <span style="color:rgba(255,255,255,0.4); margin-right:4px;">👤 To</span>${displayAddress} 🔗
            </a>
-           
            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
               <span style="font-size:9px;font-weight:800;color:${methodColor};background:rgba(255,255,255,0.05);padding:3px 6px;border-radius:4px;">${methodStr}</span>
               <div style="color:rgba(255,255,255,0.5);font-size:11px;">${formatDateTime(p.created_at)}</div>
