@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Panel - Linda</title>
+<!-- The page title will automatically update based on MODEL_ID -->
+<title>Admin Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -126,7 +127,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
   <div class="login-card">
     <div class="login-logo">$</div>
     <div class="login-title">Admin Panel</div>
-    <div class="login-sub">Linda</div>
+    <div class="login-sub" id="loginSubTitle">Model</div>
     <div class="field-label">Username</div>
     <input type="text" id="loginUser" class="field-input" placeholder="Enter username" autocomplete="username">
     <div class="field-label">Password</div>
@@ -143,7 +144,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
       <div class="topbar-icon">$</div>
       <div>
         <div class="topbar-title">Admin Panel</div>
-        <div class="topbar-sub">Linda</div>
+        <div class="topbar-sub" id="topbarSubTitle">Model</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -275,15 +276,24 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
 </div>
 
 <script>
+// 🟢 ==============================================
+// 🟢 CONFIGURATION AREA - CHANGE ONLY THIS PART!
+// 🟢 ==============================================
+const MODEL_ID = 'Linda';      // Examples: 'Rose', 'RedRose', 'Sophia', 'beauty-girl'
+const ADMIN_USER = 'linda';    // User ID required to login
+// 🟢 ==============================================
+
+// Set up UI dynamically
+document.title = `Admin Panel - ${MODEL_ID}`;
+document.getElementById('loginSubTitle').textContent = MODEL_ID;
+document.getElementById('topbarSubTitle').textContent = MODEL_ID;
+
 const SUPABASE_URL = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
 
-// 🟢 Username mapped for Linda
-const ADMIN_USER = 'linda';
 const PER_PAGE = 25;
 let allPayments = [], allWithdrawals = [], currentPayPage = 1;
 
-// 🟢 Secure Database-Driven Login
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -294,7 +304,6 @@ async function doLogin() {
     return;
   }
 
-  // 🟢 Checking password directly against the database logic
   btn.textContent = "Checking...";
   btn.disabled = true;
 
@@ -304,7 +313,6 @@ async function doLogin() {
       headers: {
         'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json'
       },
-      // We pass a fake invoice just to trigger the password check logic
       body: JSON.stringify({ p_invoice_id: 'fake_login_verification', p_is_marked: false, p_pass: p })
     });
 
@@ -354,7 +362,7 @@ async function toggleMark(invoiceId, currentStatus, btnElement) {
       if (pIndex > -1) { allPayments[pIndex].is_marked = newStatus; renderPayments(); }
     } else {
       const err = await res.json();
-      alert(`❌ Mark Failed!\nReason: ${err.message || err.details || "Unauthorized! Incorrect password."}`);
+      alert(`❌ Mark Failed!\nReason: ${err.message || err.details || "Unauthorized!"}`);
       if(res.status === 401 || res.status === 400) doLogout();
       btnElement.disabled = false;
       btnElement.textContent = 'Mark';
@@ -378,7 +386,7 @@ async function submitWithdrawal() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/request_withdrawal`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_amount: amt, p_method: method, p_note: note, p_source: 'linda', p_pass: sessionStorage.getItem('typedPass') })
+      body: JSON.stringify({ p_amount: amt, p_method: method, p_note: note, p_source: MODEL_ID, p_pass: sessionStorage.getItem('typedPass') })
     });
 
     if(res.ok) {
@@ -388,19 +396,19 @@ async function submitWithdrawal() {
       alert("Success! Withdrawal requested.");
     } else { 
       const err = await res.json();
-      alert(`❌ Request Failed!\nReason: ${err.message || err.details || "Check password or balance."}`); 
+      alert(`❌ Request Failed!\nReason: ${err.message || err.details}`); 
     }
   } catch(e) { 
       alert("❌ Network Error! Check your connection.");
   }
 }
 
+// 🟢 BUG FIX 1 & 2: Added exact source pattern matching & pagination loops
 async function fetchPayments() {
   try {
     let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
     while(keepFetching) {
-      // 🟢 Filter changed to linda
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*linda*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/payments?select=*&source=ilike.*%2F${MODEL_ID}*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       });
       let data = await res.json();
@@ -425,8 +433,7 @@ async function fetchWithdrawals() {
   try {
     let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
     while(keepFetching) {
-      // 🟢 Filter changed to linda
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=ilike.*linda*&order=created_at.desc&limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/withdrawals?select=*&source=eq.${MODEL_ID}&order=created_at.desc&limit=${limit}&offset=${offset}`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       });
       let data = await res.json();
@@ -444,8 +451,11 @@ function updateStats() {
   const expired = allPayments.filter(p => p.status === 'expired' || p._uiExpired);
 
   const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
-  const completedWd = allWithdrawals.filter(w => w.status === 'completed');
-  const totalWithdrawn = completedWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
+  
+  // 🟢 BUG FIX 4: Subtract BOTH completed & pending withdrawals so pending requests don't look available
+  const activeWd = allWithdrawals.filter(w => w.status === 'completed' || w.status === 'pending');
+  const totalWithdrawn = activeWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
+  
   const available = totalSettled - totalWithdrawn;
 
   document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
