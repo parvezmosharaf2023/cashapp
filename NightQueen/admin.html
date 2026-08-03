@@ -279,7 +279,7 @@ tbody tr:hover { background:rgba(255,255,255,0.02); }
 // 🟢 ==============================================
 // 🟢 CONFIGURATION AREA - CHANGE ONLY THIS PART!
 // 🟢 ==============================================
-const MODEL_ID = 'NightQueen';      // Examples: 'Rose', 'RedRose', 'Sophia', 'beauty-girl'
+const MODEL_ID = 'NightQueen;      // Examples: 'Rose', 'NightQueen', 'Sophia', 'beauty-girl'
 const ADMIN_USER = 'nightqueen';    // User ID required to login
 // 🟢 ==============================================
 
@@ -403,7 +403,7 @@ async function submitWithdrawal() {
   }
 }
 
-// 🟢 BUG FIX 1 & 2: Added exact source pattern matching & pagination loops
+// 🟢 BULLETPROOF DATABASE PATTERN MATCHING
 async function fetchPayments() {
   try {
     let allFetchedData = [], offset = 0, limit = 1000, keepFetching = true;
@@ -445,25 +445,38 @@ async function fetchWithdrawals() {
   } catch(e) { console.error(e); }
 }
 
-function updateStats() {
-  const settled = allPayments.filter(p => p.status === 'settled' || p.status === 'completed' || p.status === 'paid');
-  const pending = allPayments.filter(p => (p.status === 'new' || p.status === 'pending') && !p._uiExpired);
-  const expired = allPayments.filter(p => p.status === 'expired' || p._uiExpired);
+// 🟢 ALL DATA LOADS TOGETHER WITH DATABASE MATH 🟢
+async function loadData() {
+  await Promise.all([fetchPayments(), fetchWithdrawals(), updateStats()]);
+  renderPayments(); 
+  renderWithdrawals();
+  const el = document.getElementById('lastUpdated');
+  el.textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  el.classList.add('show');
+}
 
-  const totalSettled = settled.reduce((s,p) => s + parseFloat(p.amount || 0), 0);
-  
-  // 🟢 BUG FIX 4: Subtract BOTH completed & pending withdrawals so pending requests don't look available
-  const activeWd = allWithdrawals.filter(w => w.status === 'completed' || w.status === 'pending');
-  const totalWithdrawn = activeWd.reduce((s,w) => s + parseFloat(w.amount || 0), 0);
-  
-  const available = totalSettled - totalWithdrawn;
+// 🟢 DATABASE LEVEL MATH CALCULATION (100% SECURE) 🟢
+async function updateStats() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_model_stats`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_model_id: MODEL_ID })
+    });
+    
+    if(res.ok) {
+      const data = await res.json();
+      const totalSettled = parseFloat(data.total_settled || 0);
+      const available = parseFloat(data.available_balance || 0);
 
-  document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
-  document.getElementById('statSettledCount').textContent = settled.length + ' payments';
-  document.getElementById('statAvailable').textContent = '$' + available.toFixed(2);
-  document.getElementById('statPending').textContent = pending.length;
-  document.getElementById('statTotal').textContent = allPayments.length;
-  document.getElementById('statExpired').textContent = expired.length + ' expired';
+      document.getElementById('statSettled').textContent = '$' + totalSettled.toFixed(2);
+      document.getElementById('statSettledCount').textContent = data.settled_count + ' payments';
+      document.getElementById('statAvailable').textContent = '$' + available.toFixed(2);
+      document.getElementById('statPending').textContent = data.pending_count;
+      document.getElementById('statTotal').textContent = data.total_count;
+      document.getElementById('statExpired').textContent = data.expired_count + ' expired';
+    }
+  } catch(e) { console.error("Stats Error:", e); }
 }
 
 function fmtDate(str) {
@@ -508,13 +521,6 @@ function getFilteredPayments() {
 function resetAndRenderPayments() { currentPayPage = 1; renderPayments(); }
 function changePage(page) { currentPayPage = page; renderPayments(); }
 function doLogout() { sessionStorage.removeItem('adminAuth'); location.reload(); }
-async function loadData() {
-  await Promise.all([fetchPayments(), fetchWithdrawals()]);
-  updateStats(); renderPayments(); renderWithdrawals();
-  const el = document.getElementById('lastUpdated');
-  el.textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  el.classList.add('show');
-}
 
 function renderPayments() {
   const filtered = getFilteredPayments();
