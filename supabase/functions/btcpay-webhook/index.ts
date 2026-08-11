@@ -37,8 +37,10 @@ serve(async (req: Request) => {
       const paymentType = payload.paymentType || 'lightning'
       const cfCity = req.headers.get('CF-IPCity') || payload.city || ''
       const cfCountry = req.headers.get('CF-IPCountry') || payload.country || ''
+      
+      // 🟢 ফ্রন্টএন্ড থেকে আসা memberId রিসিভ করা 🟢
+      const memberId = payload.memberId || null 
 
-      // 🟢 DYNAMIC DOMAIN FIX: ফ্রন্টএন্ড থেকে আসা ডাইনামিক সোর্স নেবে 🟢
       const requestOrigin = req.headers.get("origin") || payload.source;
 
       if (!amount || amount < 2) {
@@ -79,7 +81,7 @@ serve(async (req: Request) => {
         }
       } catch (pmErr) { console.error('[PM error]', pmErr) }
 
-      // 🟢 PENDING STATUS FIX WITH ADDRESS INSERTION 🟢
+      // 🟢 ডাটাবেসের payments টেবিলে member_id সেভ করা 🟢
       const { error: dbErr } = await supabase.from('payments').insert({
         invoice_id: invoiceId, 
         amount, 
@@ -90,8 +92,9 @@ serve(async (req: Request) => {
         email, 
         city: cfCity, 
         country: cfCountry,
-        payment_request: lightningCode, // 🟢 Lightning Address (lnbc...)
-        wallet_address: btcAddress      // 🟢 On-chain Address (bc1...)
+        payment_request: lightningCode,
+        wallet_address: btcAddress,
+        member_id: memberId // 🟢 ডাটাবেসে পাঠানো হচ্ছে
       })
 
       if (dbErr) { return new Response(JSON.stringify({ error: 'Failed to save payment' }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }) }
