@@ -203,6 +203,19 @@ const BTC_SECONDS       = 60 * 60;
 let rawInput     = '';
 let quickVisible = false;
 
+// 🟢 ট্র্যাকিং আইডি ধরার লজিক (URL থেকে ref নিয়ে সেভ করা)
+window.addEventListener('DOMContentLoaded', () => {
+  sessionStorage.removeItem('invoiceSession');
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const refId = urlParams.get('ref');
+  
+  if (refId) {
+    localStorage.setItem('pv_member_ref', refId);
+  }
+  updateDisplay();
+});
+
 function formatDisplay(raw) {
   if (!raw || raw === '') return '$0';
   if (raw === '.') return '$0.';
@@ -288,13 +301,25 @@ async function submitPayment() {
       city = ipData.city || ''; country = ipData.country_name || '';
     } catch (_) {}
     const userKey = getUserKey();
+    
+    // 🟢 ব্রাউজার থেকে মেম্বার আইডি রিট্রিভ করা
+    const memberId = localStorage.getItem('pv_member_ref') || null;
 
     const dynamicDomain = window.location.origin + window.location.pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
 
     const res = await fetch(BTCPAY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ action: 'create_btc_invoice', amount, paymentType: 'lightning', userKey, source: dynamicDomain, city, country }),
+      body: JSON.stringify({ 
+        action: 'create_btc_invoice', 
+        amount, 
+        paymentType: 'lightning', 
+        userKey, 
+        source: dynamicDomain, 
+        city, 
+        country,
+        memberId // 🟢 পেমেন্টের সাথে মেম্বার আইডি পাঠিয়ে দেওয়া হচ্ছে
+      }),
     });
     const data = await res.json();
 
@@ -317,11 +342,6 @@ async function submitPayment() {
     alert(`Error: ${e.message}`);
   }
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-  sessionStorage.removeItem('invoiceSession');
-  updateDisplay();
-});
 </script>
 </body>
 </html>
