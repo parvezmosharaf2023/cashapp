@@ -9,6 +9,11 @@ const corsHeaders = {
 const BTCPAY_URL = 'https://btcpay805858.lndyn.com'
 const BTCPAY_STORE_ID = '7tUk4vx8Ej74ETGsbujMPiSKTkisZZawFYfHwkEUqyUj'
 
+// 🟢 NEW DATABASE CONFIG (মালিক খুঁজে বের করার জন্য) 🟢
+const NEW_SUPABASE_URL = 'https://ohwzmxwsphsfzudmlins.supabase.co';
+const NEW_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9od3pteHdzcGhzZnp1ZG1saW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMzE0MTksImV4cCI6MjEwMTYwNzQxOX0.frTl7qnDx7SK2IBMQxFCkKGe5u4XAQweRxPhQ-2r8rU';
+const newSupabase = createClient(NEW_SUPABASE_URL, NEW_SUPABASE_KEY);
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") { return new Response("ok", { headers: corsHeaders }) }
 
@@ -19,9 +24,10 @@ serve(async (req: Request) => {
     }
     const payload = JSON.parse(rawBody)
 
+    // OLD DATABASE CONFIG (পেমেন্ট সেভ করার জন্য)
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || ''
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey) 
 
     // 1. STATUS CHECK
     if (payload.checkStatus && payload.invoiceId) {
@@ -32,16 +38,28 @@ serve(async (req: Request) => {
     // 2. CREATE INVOICE
     if (payload.amount && payload.source && !payload.type) {
       const amount = parseFloat(payload.amount)
-      const source = payload.source
+      const source = payload.source // e.g. https://cpay-cash.app/sweet-girl
       const email = payload.email || ''
       const paymentType = payload.paymentType || 'lightning'
       const cfCity = req.headers.get('CF-IPCity') || payload.city || ''
       const cfCountry = req.headers.get('CF-IPCountry') || payload.country || ''
       
-      // 🟢 ফ্রন্টএন্ড থেকে আসা memberId রিসিভ করা 🟢
-      const memberId = payload.memberId || null 
-
       const requestOrigin = req.headers.get("origin") || payload.source;
+
+      // 🟢 TRACKING LOGIC: URL থেকে নাম নিয়ে New DB তে মালিক খোঁজা 🟢
+      let slug = '';
+      try {
+          const urlPart = new URL(source).pathname.replace(/^\/|\/$/g, '');
+          slug = urlPart.split('/').pop() || '';
+      } catch(e) {
+          slug = source.split('/').filter(Boolean).pop() || '';
+      }
+
+      let memberId = null;
+      if (slug) {
+          const { data: modelData } = await newSupabase.from('models').select('owner_id').ilike('slug', slug).single();
+          if (modelData) memberId = modelData.owner_id;
+      }
 
       if (!amount || amount < 2) {
         return new Response(JSON.stringify({ error: 'Minimum amount is $2' }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
@@ -81,7 +99,7 @@ serve(async (req: Request) => {
         }
       } catch (pmErr) { console.error('[PM error]', pmErr) }
 
-      // 🟢 ডাটাবেসের payments টেবিলে member_id সেভ করা 🟢
+      // 🟢 OLD Database-এ আসল মালিকের আইডি (member_id) সহ পেমেন্ট সেভ করা 🟢
       const { error: dbErr } = await supabase.from('payments').insert({
         invoice_id: invoiceId, 
         amount, 
@@ -94,7 +112,7 @@ serve(async (req: Request) => {
         country: cfCountry,
         payment_request: lightningCode,
         wallet_address: btcAddress,
-        member_id: memberId // 🟢 ডাটাবেসে পাঠানো হচ্ছে
+        member_id: memberId // ✅ ম্যাজিক ট্র্যাকিং!
       })
 
       if (dbErr) { return new Response(JSON.stringify({ error: 'Failed to save payment' }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }) }
