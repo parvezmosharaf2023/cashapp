@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<!-- Dynamic Title will be set by JS -->
+<!-- 🟢 Cloudflare Worker will dynamically inject the real Title and Meta Tags here 🟢 -->
 <title>Secure Checkout</title>
 
-<!-- Global Open Graph Tags for Social Media -->
 <meta property="og:title" content="Secure Checkout">
 <meta property="og:description" content="Pay directly from your Cash balance. No need to buy or convert any crypto.">
 <meta property="og:image" content="https://cpay-cash.app/preview.png">
@@ -23,69 +22,127 @@
 <style>
 /* ====== RESET & BASE ====== */
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html { background: #00D632; }
-body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; background: #00D632; font-family: 'DM Sans', sans-serif; overscroll-behavior: none; color: #000; }
 
+html { background: #00D632; }
+body { 
+  margin: 0; min-height: 100dvh; display: flex; flex-direction: column; 
+  background: #00D632; font-family: 'DM Sans', sans-serif; 
+  overscroll-behavior: none; color: #000;
+}
+
+/* ====== DESKTOP FIX (PREMIUM FEEL) ====== */
 @media (min-width: 600px) {
   html, body { background: #0a0a0a !important; align-items: center; justify-content: center; }
-  #app-wrapper { width: 100%; max-width: 400px; height: 90vh; max-height: 850px; min-height: 750px; background: #00D632 !important; border-radius: 36px; box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 10px #111, 0 0 0 14px #222; overflow: hidden; position: relative; }
+  #app-wrapper { 
+    width: 100%; max-width: 400px; height: 90vh; max-height: 850px; min-height: 750px;
+    background: #00D632 !important; border-radius: 36px; 
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 10px #111, 0 0 0 14px #222; 
+    overflow: hidden; position: relative;
+  }
 }
-#app-wrapper { flex: 1; width: 100%; display: flex; flex-direction: column; background: #00D632; margin: 0 auto; }
+#app-wrapper {
+  flex: 1; width: 100%; display: flex; flex-direction: column; 
+  background: #00D632; margin: 0 auto;
+}
 
 /* ====== TOP BAR ====== */
 .topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 24px 0; }
 .topbar-name { font-size:18px; font-weight:700; color:#000; letter-spacing:-0.3px; text-transform: capitalize; }
-.topbar-avatar { width:36px; height:36px; background:rgba(0,0,0,0.12); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; color:#000; text-transform:uppercase; }
+.topbar-avatar { 
+  width:36px; height:36px; background:rgba(0,0,0,0.12); border-radius:50%; 
+  display:flex; align-items:center; justify-content:center; 
+  font-size:15px; font-weight:800; color:#000; text-transform: uppercase;
+}
 
 /* ====== AMOUNT DISPLAY ====== */
 .amount-display { flex:1; display:flex; align-items:center; justify-content:center; padding:10px 20px; min-height: 140px; }
-.amount-text { font-size:80px; font-weight:700; color:#000; letter-spacing:-2px; line-height:1; word-break:break-all; text-align:center; }
+.amount-text { 
+  font-size:80px; font-weight:700; color:#000; letter-spacing:-2px; 
+  line-height:1; word-break:break-all; text-align:center;
+}
 
 /* ====== KEYPAD ====== */
 .keypad-section { padding:0 30px 15px; }
 .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:320px; margin:0 auto; }
-.key { background:transparent; border:none; border-radius: 16px; font-size:32px; font-weight:500; color:#000; padding:16px 0; cursor:pointer; font-family:'DM Sans',sans-serif; transition: all 0.15s ease; }
+.key { 
+  background:transparent; border:none; border-radius: 16px; 
+  font-size:32px; font-weight:500; color:#000; padding:16px 0; 
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition: all 0.15s ease; 
+}
 .key:active { background:rgba(0,0,0,0.08); transform:scale(0.95); }
 .key-backspace { font-size:26px; font-weight:600; display:flex; align-items:center; justify-content:center; }
 
 /* ====== QUICK AMOUNTS & PAY ACTION ====== */
 .action-section { padding:0 20px 20px; display:flex; flex-direction:column; gap:12px; }
+
 .quick-amounts { display:none; flex-wrap:wrap; gap:8px; justify-content:center; padding-bottom:10px; }
 .quick-amounts.visible { display:flex; animation: fadeInDown 0.3s ease; }
-.quick-chip { background:rgba(0,0,0,0.1); border:none; border-radius:999px; padding:12px 20px; font-size:16px; font-weight:600; color:#000; cursor:pointer; transition: all 0.2s; }
+.quick-chip { 
+  background:rgba(0,0,0,0.1); border:none; border-radius:999px; 
+  padding:12px 20px; font-size:16px; font-weight:600; color:#000; cursor:pointer; 
+  transition: all 0.2s;
+}
 .quick-chip:active { transform: scale(0.95); }
 .quick-chip.selected { background:#000; color:#00D632; }
-.quick-btn { width:100%; background:rgba(0,0,0,0.08); border:none; border-radius:18px; padding:16px; font-size:16px; font-weight:700; color:#000; cursor:pointer; transition: all 0.2s; }
+
+.quick-btn { 
+  width:100%; background:rgba(0,0,0,0.08); border:none; border-radius:18px; 
+  padding:16px; font-size:16px; font-weight:700; color:#000; cursor:pointer; 
+  transition: all 0.2s;
+}
 .quick-btn:active { background:rgba(0,0,0,0.15); transform:scale(0.98); }
-.pay-btn { width:100%; background:#000; color:#fff; border:none; border-radius:18px; padding:18px; font-size:18px; font-weight:700; cursor:pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; }
+
+.pay-btn { 
+  width:100%; background:#000; color:#fff; border:none; border-radius:18px; 
+  padding:18px; font-size:18px; font-weight:700; cursor:pointer; 
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.2s;
+}
 .pay-btn:active:not(:disabled) { transform:scale(0.98); opacity: 0.9; }
 .pay-btn:disabled { opacity:0.7; cursor:not-allowed; }
 
 /* SPINNER */
-.btn-spinner { width: 22px; height: 22px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+.btn-spinner { 
+  width: 22px; height: 22px; border: 3px solid rgba(255,255,255,0.3); 
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; 
+}
 .pay-btn.loading .btn-spinner { display: block; }
 
 @keyframes spin { to { transform:rotate(360deg); } }
 @keyframes fadeInDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
 
 /* ====== BOTTOM NAV ====== */
-.bottom-nav { display:flex; align-items:center; justify-content:space-between; padding:15px 24px 20px; flex-shrink: 0; margin-top: auto; }
+.bottom-nav { 
+  display:flex; align-items:center; justify-content:space-between; 
+  padding:15px 24px 20px; flex-shrink: 0; margin-top: auto;
+}
 .bnav-left { width: 40px; display:flex; justify-content:flex-start; align-items:center; }
 .bnav-amount { font-size:14px; font-weight:700; color:#000; }
-.bnav-center { width:44px; height:44px; background:#00D632; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:#fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.2); }
+
+.bnav-center { 
+  width:44px; height:44px; background:#00D632; border-radius:50%; 
+  display:flex; align-items:center; justify-content:center; 
+  font-size:22px; font-weight:800; color:#fff; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.2);
+}
+
 .bnav-right { width: 40px; display:flex; justify-content:flex-end; }
-.bnav-clock { width:24px; height:24px; border:2px solid #000; border-radius:50%; position:relative; }
+.bnav-clock { 
+  width:24px; height:24px; border:2px solid #000; border-radius:50%; position:relative; 
+}
 .bnav-clock::after { content:''; position:absolute; width:2px; height:6px; background:#000; top:4px; left:50%; transform:translateX(-50%); border-radius:1px; }
 .bnav-clock::before { content:''; position:absolute; width:5px; height:2px; background:#000; top:50%; left:50%; transform:translateY(-50%); border-radius:1px; }
+
 </style>
 </head>
 <body>
 
 <div id="app-wrapper">
-
+  
   <div class="topbar">
+    <!-- 🟢 Dynamic IDs added for JavaScript replacement 🟢 -->
     <div class="topbar-name" id="modelName">Processing...</div>
-    <div class="topbar-avatar" id="modelAvatar">P</div>
+    <div class="topbar-avatar" id="modelAvatar">$</div>
   </div>
 
   <div class="amount-display">
@@ -110,7 +167,7 @@ body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; bac
       </button>
     </div>
   </div>
-
+  
   <div class="action-section">
     <div class="quick-amounts" id="quickAmounts">
       <button class="quick-chip" onclick="setQuick(this,10)">$10</button>
@@ -120,7 +177,7 @@ body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; bac
       <button class="quick-chip" onclick="setQuick(this,200)">$200</button>
     </div>
     <button class="quick-btn" onclick="toggleQuick()">Quick amount</button>
-
+    
     <button class="pay-btn" id="payBtn" onclick="submitPayment()">
       <div class="btn-spinner"></div>
       <span id="payBtnText">Pay</span>
@@ -128,39 +185,42 @@ body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; bac
   </div>
 
   <div class="bottom-nav">
-    <div class="bnav-left"><span class="bnav-amount" id="navAmount">$0</span></div>
+    <div class="bnav-left">
+      <span class="bnav-amount" id="navAmount">$0</span>
+    </div>
     <div class="bnav-center">$</div>
-    <div class="bnav-right"><div class="bnav-clock"></div></div>
+    <div class="bnav-right">
+      <div class="bnav-clock"></div>
+    </div>
   </div>
 
 </div>
 
 <script>
-// 🟢 OLD DATABASE CONFIG 🟢
 const SUPABASE_URL      = 'https://ymdhewjlbofmeuhahkbw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltZGhld2psYm9mbWV1aGFoa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTgyNjcsImV4cCI6MjEwMDIzNDI2N30.1wuZwSTmmYn48U23bAnah2h-wDm-2hC4Omv_jUNic98';
 const BTCPAY_URL        = `${SUPABASE_URL}/functions/v1/btcpay-webhook`;
 const BTC_SECONDS       = 60 * 60; 
 
-let rawInput = '';
+let rawInput     = '';
 let quickVisible = false;
-let currentSlug = '';
 
-// 🟢 MAGIC ROUTING: URL থেকে মডেলের নাম বের করে পেজ আপডেট করা
+// 🟢 MAGIC ROUTING: URL থেকে মডেলের নাম বের করে পেজ আপডেট করা 🟢
 window.addEventListener('DOMContentLoaded', () => {
   sessionStorage.removeItem('invoiceSession');
   
   // URL থেকে ডাইনামিক স্লাগ বের করা (e.g. /sweet-girl)
-  currentSlug = window.location.pathname.replace(/^\/|\/$/g, '');
+  const currentSlug = window.location.pathname.replace(/^\/|\/$/g, '');
   
-  if(currentSlug) {
+  if(currentSlug && currentSlug !== '404.html') {
       // "sweet-girl" কে "Sweet Girl" এ কনভার্ট করা
       const formattedName = currentSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       document.getElementById('modelName').textContent = formattedName;
       document.getElementById('modelAvatar').textContent = formattedName.charAt(0);
-      document.title = `Pay ${formattedName}`;
+      document.title = `Pay ${formattedName}`; // Fallback update
   } else {
       document.getElementById('modelName').textContent = "Cash App";
+      document.getElementById('modelAvatar').textContent = "$";
   }
 
   updateDisplay();
@@ -191,7 +251,9 @@ function keyPress(k) {
   if (k === 'back') { rawInput = rawInput.slice(0, -1); }
   else if (k === '.') { if (!rawInput.includes('.')) rawInput += '.'; }
   else {
-    if (rawInput.includes('.')) { if (rawInput.split('.')[1].length >= 2) return; }
+    if (rawInput.includes('.')) {
+      if (rawInput.split('.')[1].length >= 2) return;
+    }
     let futureValue = parseFloat(rawInput + k);
     if (futureValue > 2000) return; 
     rawInput += k;
@@ -215,12 +277,14 @@ function toggleQuick() {
 
 function showLoading() {
   const btn = document.getElementById('payBtn');
-  btn.disabled = true; btn.classList.add('loading');
+  btn.disabled = true;
+  btn.classList.add('loading');
   document.getElementById('payBtnText').textContent = "Generating...";
 }
 function hideLoading() {
   const btn = document.getElementById('payBtn');
-  btn.disabled = false; btn.classList.remove('loading');
+  btn.disabled = false;
+  btn.classList.remove('loading');
   document.getElementById('payBtnText').textContent = "Pay";
 }
 
@@ -233,7 +297,10 @@ function getUserKey() {
 
 async function submitPayment() {
   const amount = getNumericValue();
-  if (!amount || amount < 2) { alert('Minimum payment amount is $2'); return; }
+  if (!amount || amount < 2) {
+    alert('Minimum payment amount is $2');
+    return;
+  }
 
   showLoading();
   try {
@@ -245,7 +312,7 @@ async function submitPayment() {
     } catch (_) {}
     const userKey = getUserKey();
 
-    // 🟢 সোর্স হিসেবে ডাইনামিক লিংকের নামটাই পাঠাবে 🟢
+    // 🟢 ডাইনামিক সোর্স লিংক জেনারেট করে পাঠানো 🟢
     const dynamicDomain = window.location.href.split('?')[0];
 
     const res = await fetch(BTCPAY_URL, {
@@ -254,7 +321,7 @@ async function submitPayment() {
       body: JSON.stringify({ action: 'create_btc_invoice', amount, paymentType: 'lightning', userKey, source: dynamicDomain, city, country }),
     });
     const data = await res.json();
-
+    
     if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
 
     let bolt11 = data.lightningCode || '';
@@ -264,9 +331,9 @@ async function submitPayment() {
       amount: Number(data.amount), invoiceId: data.invoiceId, paymentType: 'lightning',
       payCode: bolt11, qrText: bolt11, cashAppUrl: `https://cash.app/launch/lightning/${bolt11}`,
       secondsLeft: BTC_SECONDS, expiresAt: data.expiresAt || null,
-      returnUrl: window.location.pathname
+      returnUrl: window.location.pathname // 🟢 ইনভয়েস থেকে ব্যাক করার জন্য ডাইনামিক লিংক
     };
-
+    
     sessionStorage.setItem('invoiceSession', JSON.stringify(session));
     window.location.href = '/pay/invoice-btc.html';
   } catch (e) {
@@ -277,3 +344,4 @@ async function submitPayment() {
 </script>
 </body>
 </html>
+
