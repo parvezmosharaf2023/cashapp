@@ -9,10 +9,9 @@ const corsHeaders = {
 const BTCPAY_URL = 'https://btcpay805858.lndyn.com'
 const BTCPAY_STORE_ID = '7tUk4vx8Ej74ETGsbujMPiSKTkisZZawFYfHwkEUqyUj'
 
-// 🟢 NEW DATABASE CONFIG (মালিক খুঁজে বের করার জন্য) 🟢
+// 🟢 NEW DATABASE CONFIG 🟢
 const NEW_SUPABASE_URL = 'https://wutuvhepaeugsmdgfpuc.supabase.co';
-const NEW_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dHV2aGVwYWV1Z3NtZGdmcHVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTcyMTIsImV4cCI6MjEwMjM5MzIxMn0.wEpY4wJuhUNiDNWWCN4JuXcF6WyfkOXBuX69RSRp4XM';
-
+const NEW_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dHV2aGVwYWV1Z3NtZGdmcHVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTcyMTIsImV4cCI6MjEwMjM5MzIxMn0.wEpY4wJuhUNiDNWWCN4JuXcF6WyfkOXBuX69RSRp4XM';
 const newSupabase = createClient(NEW_SUPABASE_URL, NEW_SUPABASE_KEY);
 
 serve(async (req: Request) => {
@@ -25,21 +24,19 @@ serve(async (req: Request) => {
     }
     const payload = JSON.parse(rawBody)
 
-    // OLD DATABASE CONFIG (পেমেন্ট সেভ করার জন্য)
+    // OLD DATABASE CONFIG
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || ''
     const supabase = createClient(supabaseUrl, supabaseKey) 
 
-    // 1. STATUS CHECK
     if (payload.checkStatus && payload.invoiceId) {
-      const { data } = await supabase.from('payments').select('status').eq('invoice_id', payload.invoiceId).single()
+      const { data } = await supabase.from('payments').select('status').eq('invoice_id', payload.invoiceId).maybeSingle()
       return new Response(JSON.stringify({ status: data?.status || 'pending' }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // 2. CREATE INVOICE
     if (payload.amount && payload.source && !payload.type) {
       const amount = parseFloat(payload.amount)
-      const source = payload.source // e.g. https://cpay-cash.app/sweet-girl
+      const source = payload.source 
       const email = payload.email || ''
       const paymentType = payload.paymentType || 'lightning'
       const cfCity = req.headers.get('CF-IPCity') || payload.city || ''
@@ -47,7 +44,6 @@ serve(async (req: Request) => {
       
       const requestOrigin = req.headers.get("origin") || payload.source;
 
-      // 🟢 TRACKING LOGIC: URL থেকে নাম নিয়ে New DB তে মালিক খোঁজা 🟢
       let slug = '';
       try {
           const urlPart = new URL(source).pathname.replace(/^\/|\/$/g, '');
@@ -58,7 +54,7 @@ serve(async (req: Request) => {
 
       let memberId = null;
       if (slug) {
-          const { data: modelData } = await newSupabase.from('models').select('owner_id').ilike('slug', slug).single();
+          const { data: modelData } = await newSupabase.from('models').select('owner_id').ilike('slug', slug).maybeSingle();
           if (modelData) memberId = modelData.owner_id;
       }
 
@@ -100,7 +96,6 @@ serve(async (req: Request) => {
         }
       } catch (pmErr) { console.error('[PM error]', pmErr) }
 
-      // 🟢 OLD Database-এ আসল মালিকের আইডি (member_id) সহ পেমেন্ট সেভ করা 🟢
       const { error: dbErr } = await supabase.from('payments').insert({
         invoice_id: invoiceId, 
         amount, 
@@ -113,7 +108,8 @@ serve(async (req: Request) => {
         country: cfCountry,
         payment_request: lightningCode,
         wallet_address: btcAddress,
-        member_id: memberId // ✅ ম্যাজিক ট্র্যাকিং!
+        member_id: memberId,
+        owner_id: memberId 
       })
 
       if (dbErr) { return new Response(JSON.stringify({ error: 'Failed to save payment' }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }) }
@@ -121,7 +117,6 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ invoiceId, amount, paymentType, lightningCode, btcAddress, btcAmount: btcDue, checkoutLink: invoiceData.checkoutLink }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    // 3. BTCPAY WEBHOOK
     if (payload.type) {
       const webhookSecret = Deno.env.get('BTCPAY_WEBHOOK_SECRET')
 
@@ -137,7 +132,7 @@ serve(async (req: Request) => {
 
       if (payload.type === 'InvoiceSettled' || payload.type === 'InvoicePaymentSettled') {
         const invoiceId = payload.invoiceId
-        const { data: existing } = await supabase.from('payments').select('id').eq('invoice_id', invoiceId).single()
+        const { data: existing } = await supabase.from('payments').select('id').eq('invoice_id', invoiceId).maybeSingle()
 
         if (existing) { await supabase.from('payments').update({ status: 'settled', paid_at: new Date().toISOString() }).eq('invoice_id', invoiceId) } 
         else { await supabase.from('payments').insert({ invoice_id: invoiceId, amount: payload.payment?.value || 0, currency: 'USD', status: 'settled', payment_type: payload.payment?.paymentMethodId?.includes('LN') ? 'lightning' : 'onchain', source: 'webhook', paid_at: new Date().toISOString() }) }
