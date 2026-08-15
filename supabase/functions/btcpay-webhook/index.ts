@@ -96,6 +96,7 @@ serve(async (req: Request) => {
         }
       } catch (pmErr) { console.error('[PM error]', pmErr) }
 
+      // ✅ FIXED: Removed the non-existent owner_id column
       const { error: dbErr } = await supabase.from('payments').insert({
         invoice_id: invoiceId, 
         amount, 
@@ -108,8 +109,7 @@ serve(async (req: Request) => {
         country: cfCountry,
         payment_request: lightningCode,
         wallet_address: btcAddress,
-        member_id: memberId,
-        owner_id: memberId 
+        member_id: memberId
       })
 
       if (dbErr) { return new Response(JSON.stringify({ error: 'Failed to save payment' }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }) }
