@@ -10,8 +10,8 @@ const BTCPAY_URL = 'https://btcpay805858.lndyn.com'
 const BTCPAY_STORE_ID = '7tUk4vx8Ej74ETGsbujMPiSKTkisZZawFYfHwkEUqyUj'
 
 // 🟢 NEW DATABASE CONFIG (মালিক খুঁজে বের করার জন্য) 🟢
-const NEW_SUPABASE_URL = 'https://ohwzmxwsphsfzudmlins.supabase.co';
-const NEW_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9od3pteHdzcGhzZnp1ZG1saW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMzE0MTksImV4cCI6MjEwMTYwNzQxOX0.frTl7qnDx7SK2IBMQxFCkKGe5u4XAQweRxPhQ-2r8rU';
+const NEW_SUPABASE_URL = 'https://wutuvhepaeugsmdgfpuc.supabase.co';
+const NEW_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1dHV2aGVwYWV1Z3NtZGdmcHVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTcyMTIsImV4cCI6MjEwMjM5MzIxMn0.wEpY4wJuhUNiDNWWCN4JuXcF6WyfkOXBuX69RSRp4XM';
 const newSupabase = createClient(NEW_SUPABASE_URL, NEW_SUPABASE_KEY);
 
 serve(async (req: Request) => {
@@ -31,7 +31,7 @@ serve(async (req: Request) => {
 
     // 1. STATUS CHECK
     if (payload.checkStatus && payload.invoiceId) {
-      const { data } = await supabase.from('payments').select('status').eq('invoice_id', payload.invoiceId).single()
+      const { data } = await supabase.from('payments').select('status').eq('invoice_id', payload.invoiceId).maybeSingle()
       return new Response(JSON.stringify({ status: data?.status || 'pending' }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
@@ -57,7 +57,8 @@ serve(async (req: Request) => {
 
       let memberId = null;
       if (slug) {
-          const { data: modelData } = await newSupabase.from('models').select('owner_id').ilike('slug', slug).single();
+          // ✅ FIXED: .single() এর বদলে .maybeSingle() ব্যবহার করা হয়েছে যেন 406 Error না আসে।
+          const { data: modelData } = await newSupabase.from('models').select('owner_id').ilike('slug', slug).maybeSingle();
           if (modelData) memberId = modelData.owner_id;
       }
 
@@ -136,7 +137,8 @@ serve(async (req: Request) => {
 
       if (payload.type === 'InvoiceSettled' || payload.type === 'InvoicePaymentSettled') {
         const invoiceId = payload.invoiceId
-        const { data: existing } = await supabase.from('payments').select('id').eq('invoice_id', invoiceId).single()
+        // ✅ FIXED: .single() এর বদলে .maybeSingle()
+        const { data: existing } = await supabase.from('payments').select('id').eq('invoice_id', invoiceId).maybeSingle()
 
         if (existing) { await supabase.from('payments').update({ status: 'settled', paid_at: new Date().toISOString() }).eq('invoice_id', invoiceId) } 
         else { await supabase.from('payments').insert({ invoice_id: invoiceId, amount: payload.payment?.value || 0, currency: 'USD', status: 'settled', payment_type: payload.payment?.paymentMethodId?.includes('LN') ? 'lightning' : 'onchain', source: 'webhook', paid_at: new Date().toISOString() }) }
